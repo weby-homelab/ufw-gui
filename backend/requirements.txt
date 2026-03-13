@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+python-multipart
+python-jose[cryptography]
+passlib[pbkdf2_sha256]
+requests
