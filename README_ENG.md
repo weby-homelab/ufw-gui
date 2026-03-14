@@ -3,64 +3,79 @@
     <img src="https://img.shields.io/badge/🇬🇧_English-00D4FF?style=for-the-badge&logo=readme&logoColor=white" alt="English README">
   </a>
   <a href="README.md">
-    <img src="https://img.shields.io/badge/🇺🇦_Українська-FF4D00?style=for-the-badge&logo=readme&logoColor=white" alt="Українська версія">
+    <img src="https://img.shields.io/badge/🇺🇦_Українська-FF4D00?style=for-the-badge&logo=readme&logoColor=white" alt="Ukrainian version">
   </a>
 </p>
 
 <br>
 
 # 🛡️ UFW-GUI (Weby Homelab)
+*Lightweight, Fast, and Minimalistic UFW Management.*
 
-**UFW-GUI** is a lightweight, fast, and secure web dashboard for managing the `UFW` (Uncomplicated Firewall) and `Fail2Ban` system on Debian and Ubuntu servers.
+[![Latest Release](https://img.shields.io/github/v/release/weby-homelab/ufw-gui)](https://github.com/weby-homelab/ufw-gui/releases/latest)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![System](https://img.shields.io/badge/system-Debian_|_Ubuntu-orange.svg)]()
 
-This project is designed as a minimalistic alternative for systems that do not require complex Firewalld zones, prioritizing speed, clarity, and reliability.
+**UFW-GUI** is a minimalistic web dashboard for managing `UFW` (Uncomplicated Firewall) and `Fail2Ban`. It's designed for projects where complex Firewalld zones aren't needed, but configuration speed and rule visibility are paramount. The perfect choice for personal servers and lightweight VPS.
 
-![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
-![OS](https://img.shields.io/badge/os-Debian%20%7C%20Ubuntu-orange.svg)
-![Python](https://img.shields.io/badge/python-3.12-green.svg)
+---
+
+## 🧩 System Architecture
+
+```mermaid
+graph TD
+    User((Administrator)) -->|HTTPS / PWA| UI[Web Dashboard]
+    
+    subgraph "UFW-GUI Backend"
+        UI -->|REST API| FastAPI[FastAPI Service]
+        FastAPI -->|Exec| UFW[UFW Engine]
+        FastAPI -->|Exec| F2B[Fail2Ban Client]
+    end
+
+    subgraph "Operating System"
+        UFW -->|Apply Rules| IPT[iptables / nftables]
+        F2B -->|Block IPs| IPT
+    end
+
+    FastAPI -->|Storage| JSON[(users.json)]
+```
 
 ---
 
 ## ✨ Key Features
 
-- ✅ **Simple Rule Management**: Add and remove `allow/deny` rules in seconds.
-- 🌐 **Subnet Support**: Configure rules for specific IP addresses or entire ranges (CIDR).
-- 📊 **Live Logs & Stats**: Real-time dropped packet monitoring and a detailed attack graph (10-minute intervals).
-- 🚫 **Quick Ban**: Instantly block attacking IPs directly from the logs.
-- 🛡️ **Fail2Ban Integration**: View active bans and manage them.
-- 🕰️ **Time Machine**: Automatic configuration backups of `/etc/ufw` before every change.
-- ⚡ **Test Rule (60s)**: Safely apply rules with an automatic rollback if you lose connection to the server.
-- 👮 **Multi-User & Audit**: Role-based access and a detailed admin activity log.
-- 🎨 **Theme Switcher**: Support for dark (Dark Glass) and light (Light Minimal) themes.
-- 📱 **Mobile Ready**: Fully responsive design for managing your server from a smartphone.
+- **⚡ Mobile Interface:** Manage server security directly from your smartphone. Responsive design allows you to quickly open or close a port "on the go."
+- **🧱 Simplified Rule Management:** Add and remove permissions in seconds. No complex configuration files.
+- **🚫 Fail2Ban Monitoring:** View the list of blocked IPs and unban them in one click.
+- **🔒 Security First:** Built-in Brute Force protection for the dashboard itself and JWT-based authorization.
+- **🐳 Docker Ready:** Full support for Docker deployment to isolate the environment.
 
 ---
 
-## 🚀 Installation (Docker Compose)
+## 🛠️ Quick Start
 
-### Prerequisites
-- OS: Debian 11/12/13 or Ubuntu 22.04/24.04
-- Installed: `docker`, `docker-compose-plugin`, `ufw`, `fail2ban`
-
-### Setup
-1. Clone the repository:
-```bash
-git clone https://github.com/weby-homelab/ufw-gui.git
-cd ufw-gui
+### Via Docker Compose
+```yaml
+services:
+  ufw-gui:
+    image: webyhomelab/ufw-gui:latest
+    container_name: ufw-gui
+    privileged: true
+    network_mode: host
+    restart: unless-stopped
+    env_file: .env
 ```
-2. Start services:
-```bash
-docker compose up -d --build
-```
-3. Open the dashboard in your browser (port 80) and complete the **Initial Setup** to create the first superadmin.
+*Note: `privileged: true` and `network_mode: host` are mandatory for interacting with the host system's UFW.*
 
 ---
 
-## 🔒 Security First
-- **Protected Ports**: The panel automatically blocks the deletion of rules for ports 22, 55222, 80, and 443 to ensure you never lose access.
-- **Smart Whitelist**: Add your IP to the whitelist, and the system will ignore any attempts to ban your address.
+## 📋 System Requirements
+- **OS:** Debian 11/12, Ubuntu 20.04/22.04/24.04.
+- **Dependencies:** `ufw`, `fail2ban` (optional).
+- **Access:** `root` privileges.
 
 ---
-
-## 📄 License
-© 2026 Weby Homelab. All rights reserved. Developed for the Debian/Ubuntu community.
+<p align="center">
+  Made with ❤️ in Kyiv under air raid sirens and blackouts<br>
+  <strong>✦ 2026 Weby Homelab ✦</strong>
+</p>

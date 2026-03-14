@@ -10,57 +10,72 @@
 <br>
 
 # 🛡️ UFW-GUI (Weby Homelab)
+*Легке, швидке та мінімалістичне керування UFW.*
 
-**UFW-GUI** — це легка, швидка та безпечна веб-панель для керування брандмауером `UFW` (Uncomplicated Firewall) та системою `Fail2Ban` на серверах Debian та Ubuntu.
+[![Latest Release](https://img.shields.io/github/v/release/weby-homelab/ufw-gui)](https://github.com/weby-homelab/ufw-gui/releases/latest)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![System](https://img.shields.io/badge/system-Debian_|_Ubuntu-orange.svg)]()
 
-Цей проєкт створений як мінімалістична альтернатива для систем, де не потрібні складні зони Firewalld, а важлива швидкість, наочність та надійність.
+**UFW-GUI** — це мінімалістична веб-панель для керування `UFW` (Uncomplicated Firewall) та `Fail2Ban`. Вона створена для проєктів, де не потрібні складні зони Firewalld, а важлива швидкість налаштування та наочність правил. Ідеальний вибір для персональних серверів та легких VPS.
 
-![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
-![OS](https://img.shields.io/badge/os-Debian%20%7C%20Ubuntu-orange.svg)
-![Python](https://img.shields.io/badge/python-3.12-green.svg)
+---
+
+## 🧩 Архітектура системи
+
+```mermaid
+graph TD
+    User((Адміністратор)) -->|HTTPS / PWA| UI[Web Dashboard]
+    
+    subgraph "UFW-GUI Backend"
+        UI -->|REST API| FastAPI[FastAPI Service]
+        FastAPI -->|Exec| UFW[UFW Engine]
+        FastAPI -->|Exec| F2B[Fail2Ban Client]
+    end
+
+    subgraph "Operating System"
+        UFW -->|Apply Rules| IPT[iptables / nftables]
+        F2B -->|Block IPs| IPT
+    end
+
+    FastAPI -->|Storage| JSON[(users.json)]
+```
 
 ---
 
 ## ✨ Основні можливості
 
-- ✅ **Просте керування правилами**: Додавання та видалення правил `allow/deny` за лічені секунди.
-- 🌐 **Підтримка підмереж**: Налаштування правил для конкретних IP-адрес або цілих діапазонів (CIDR).
-- 📊 **Live Logs & Stats**: Моніторинг заблокованих пакетів у реальному часі та детальний графік атак (10-хвилинна градація).
-- 🚫 **Quick Ban**: Миттєве блокування атакуючих IP прямо з логів.
-- 🛡️ **Fail2Ban Integration**: Відображення активних банів та керування ними.
-- 🕰️ **Time Machine**: Автоматичні бекапи конфігурації `/etc/ufw` перед кожною зміною.
-- ⚡ **Test Rule (60s)**: Безпечне застосування правил з автоматичним відкатом, якщо ви втратите зв'язок із сервером.
-- 👮 **Multi-User & Audit**: Система ролей та детальний журнал дій адміністраторів.
-- 🎨 **Theme Switcher**: Підтримка темних (Dark Glass) та світлих (Light Minimal) тем.
-- 📱 **Mobile Ready**: Повністю адаптивний дизайн для керування сервером зі смартфона.
+- **⚡ Мобільний інтерфейс:** Керуйте безпекою сервера прямо зі смартфона. Адаптивний дизайн дозволяє швидко відкрити або закрити порт "на ходу".
+- **🧱 Спрощене керування правилами:** Додавайте та видаляйте дозволи за лічені секунди. Жодних складних конфігураційних файлів.
+- **🚫 Fail2Ban Monitoring:** Переглядайте список заблокованих IP та розбанюйте їх в один клік.
+- **🔒 Безпека понад усе:** Вбудований захист від Brute Force для самої панелі та авторизація через JWT.
+- **🐳 Docker Ready:** Повна підтримка розгортання через Docker для ізоляції оточення.
 
 ---
 
-## 🚀 Встановлення (Docker Compose)
+## 🛠️ Швидкий старт
 
-### Попередні вимоги
-- ОС: Debian 11/12/13 або Ubuntu 22.04/24.04
-- Встановлені: `docker`, `docker-compose-plugin`, `ufw`, `fail2ban`
-
-### Запуск
-1. Клонуйте репозиторій:
-```bash
-git clone https://github.com/weby-homelab/ufw-gui.git
-cd ufw-gui
+### Через Docker Compose
+```yaml
+services:
+  ufw-gui:
+    image: webyhomelab/ufw-gui:latest
+    container_name: ufw-gui
+    privileged: true
+    network_mode: host
+    restart: unless-stopped
+    env_file: .env
 ```
-2. Запустіть сервіси:
-```bash
-docker compose up -d --build
-```
-3. Відкрийте панель у браузері (порт 80) та пройдіть **Initial Setup** для створення першого суперадміна.
+*Важливо: `privileged: true` та `network_mode: host` обов'язкові для роботи з UFW хостової системи.*
 
 ---
 
-## 🔒 Безпека понад усе
-- **Protected Ports**: Панель автоматично блокує видалення правил для портів 22, 55222, 80 та 443, щоб ви ніколи не заблокували свій доступ.
-- **Smart Whitelist**: Додайте свій IP у білий список, і система ігноруватиме будь-які спроби бану вашої адреси.
+## 📋 Системні вимоги
+- **ОС:** Debian 11/12, Ubuntu 20.04/22.04/24.04.
+- **Залежності:** `ufw`, `fail2ban` (опціонально).
+- **Доступ:** Права `root`.
 
 ---
-
-## 📄 Ліцензія
-© 2026 Weby Homelab. Всі права захищені. Розроблено для спільноти Debian/Ubuntu.
+<p align="center">
+  Made with ❤️ in Kyiv under air raid sirens and blackouts<br>
+  <strong>✦ 2026 Weby Homelab ✦</strong>
+</p>
