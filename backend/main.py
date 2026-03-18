@@ -6,22 +6,42 @@ from passlib.context import CryptContext
 from datetime import datetime, timedelta
 import subprocess, json, os, re, shutil, asyncio, sqlite3, requests
 
-SECRET_KEY = "super-secret-ufw-gui-key-2026"
+# Security Hardening: Load secret from environment
+SECRET_KEY = os.getenv("UFW_GUI_SECRET_KEY", "fallback-insecure-key-change-me")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24
 pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/login")
+
 DATA_DIR = "/app/data"
 USER_DATA_FILE = f"{DATA_DIR}/users.json"
 CONFIG_FILE = f"{DATA_DIR}/config.json"
 UFW_BACKUP_DIR = f"{DATA_DIR}/ufw_backups"
 DB_FILE = f"{DATA_DIR}/stats.db"
 
-app = FastAPI(title="UFW-GUI API")
+app = FastAPI(title="UFW-GUI API", version="1.2.0")
 rollback_task = None
 
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"],)
 
+# --- Validation Helpers ---
+def is_valid_ip(ip: str) -> bool:
+    if not ip: return True
+    # Basic IPv4/IPv6 regex
+    ipv4 = r"^(\d{1,3}\.){3}\d{1,3}(\/\d{1,2})?$"
+    ipv6 = r"^[0-9a-fA-F:]+(\/\d{1,3})?$"
+    return bool(re.match(ipv4, ip)) or bool(re.match(ipv6, ip))
+
+def is_valid_port(port: str) -> bool:
+    if not port: return True
+    # Allow numbers, ranges like 80:90
+    return bool(re.match(r"^\d+(:\d+)?$", port))
+
+def is_valid_proto(proto: str) -> bool:
+    if not proto: return True
+    return proto.lower() in ["tcp", "udp"]
+
+# --- Database ---
 def init_db():
     os.makedirs(DATA_DIR, exist_ok=True)
     conn = sqlite3.connect(DB_FILE)
@@ -112,6 +132,7 @@ async def get_status(u=Depends(get_current_user)):
 
 @app.post("/api/toggle")
 async def toggle_ufw(action: str = Body(..., embed=True), u=Depends(get_current_user)):
+    if action not in ["enable", "disable", "reload"]: raise HTTPException(status_code=400, detail="Invalid action")
     res = run_cmd(["ufw", "--force", action])
     log_action(u["username"], "TOGGLE_UFW", action)
     return {"result": res}
@@ -138,6 +159,12 @@ async def get_rules(u=Depends(get_current_user)):
 
 @app.post("/api/rule")
 async def add_rule(action: str = Body(...), port: str = Body(""), proto: str = Body(""), ip: str = Body(""), u=Depends(get_current_user)):
+    # Input Validation
+    if action not in ["allow", "deny", "reject"]: raise HTTPException(status_code=400, detail="Invalid action")
+    if not is_valid_ip(ip): raise HTTPException(status_code=400, detail="Invalid IP format")
+    if not is_valid_port(port): raise HTTPException(status_code=400, detail="Invalid Port format")
+    if not is_valid_proto(proto): raise HTTPException(status_code=400, detail="Invalid Protocol")
+
     create_snapshot("before_add_rule")
     cmd = ["ufw", action]
     if ip:
@@ -156,6 +183,7 @@ async def add_rule(action: str = Body(...), port: str = Body(""), proto: str = B
 
 @app.delete("/api/rule/{rule_id}")
 async def delete_rule(rule_id: str, u=Depends(get_current_user)):
+    if not rule_id.isdigit(): raise HTTPException(status_code=400, detail="Invalid ID")
     create_snapshot("before_del_rule")
     res = run_cmd(["ufw", "--force", "delete", rule_id])
     log_action(u["username"], "DELETE_RULE", f"ID: {rule_id}")
@@ -163,6 +191,7 @@ async def delete_rule(rule_id: str, u=Depends(get_current_user)):
 
 @app.post("/api/ban")
 async def ban_ip(ip: str = Body(..., embed=True), u=Depends(get_current_user)):
+    if not is_valid_ip(ip): raise HTTPException(status_code=400, detail="Invalid IP format")
     create_snapshot("before_ban")
     res = run_cmd(["ufw", "insert", "1", "deny", "from", ip])
     log_action(u["username"], "BAN_IP", ip)
@@ -216,6 +245,7 @@ async def get_f2b(u=Depends(get_current_user)):
 
 @app.post("/api/fail2ban/unban")
 async def unban(ip: str=Body(...), jail: str=Body(...), u=Depends(get_current_user)):
+    if not is_valid_ip(ip): raise HTTPException(status_code=400, detail="Invalid IP")
     res = run_cmd(["fail2ban-client", "set", jail, "unbanip", ip])
     log_action(u["username"], "UNBAN", f"IP: {ip}, Jail: {jail}")
     return {"result": res}
