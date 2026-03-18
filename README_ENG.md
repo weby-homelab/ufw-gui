@@ -9,7 +9,7 @@
 
 <br>
 
-# UFW-GUI v1.2.0 — LIGHT⚡️ SAFETY [![Latest Release](https://img.shields.io/github/v/release/weby-homelab/ufw-gui)](https://github.com/weby-homelab/ufw-gui/releases/latest) DOCKER Edition
+# UFW-GUI v1.2.0 [![Latest Release](https://img.shields.io/github/v/release/weby-homelab/ufw-gui)](https://github.com/weby-homelab/ufw-gui/releases/latest) DOCKER Edition
 
 <p align="center">
   <img src="https://img.shields.io/github/last-commit/weby-homelab/ufw-gui" alt="GitHub last commit">
