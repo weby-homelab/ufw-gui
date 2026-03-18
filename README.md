@@ -9,68 +9,77 @@
 
 <br>
 
-# UFW-GUI v1.2.0 [![Latest Release](https://img.shields.io/github/v/release/weby-homelab/ufw-gui)](https://github.com/weby-homelab/ufw-gui/releases/latest) DOCKER Edition
-
 <p align="center">
-  <img src="https://img.shields.io/github/last-commit/weby-homelab/ufw-gui" alt="GitHub last commit">
-  <img src="https://img.shields.io/github/license/weby-homelab/ufw-gui" alt="License">
-  <img src="https://img.shields.io/badge/python-3.12+-blue.svg?logo=python&logoColor=white" alt="Python Version">
-  <img src="https://img.shields.io/badge/Platform-Docker-2496ED?style=flat&logo=docker&logoColor=white" alt="Platform Docker">
+  <img src="https://img.shields.io/github/v/release/weby-homelab/ufw-gui?style=for-the-badge&color=purple" alt="Latest Release">
+  <img src="https://img.shields.io/badge/Branch-Main_(Docker)-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Branch Main">
 </p>
 
-**Сучасна веб-панель керування фаєрволом UFW для Debian/Ubuntu.**
+# UFW-GUI: Docker Edition
 
-Ця гілка (`main`) призначена для швидкого розгортання через **Docker Compose**. Усі сервіси (Nginx, Backend, Frontend) упаковані в контейнери для максимальної ізоляції.
+**UFW-GUI** — це сучасна, легка та безпечна веб-панель для управління фаєрволом UFW у дистрибутивах Debian та Ubuntu. Проект створений для системних адміністраторів, які цінують візуальний контроль, безпеку та швидкість налаштування.
+
+Гілка `main` призначена для швидкого розгортання через **Docker Compose**. Усі сервіси (Nginx, Backend, Frontend) упаковані в контейнери для максимальної ізоляції.
 
 ---
 
-## 🚀 Основні можливості v1.2.0
+## 🛡️ Безпека та Функціонал
 
-- **🔒 Hardened Security:** Повна ізоляція API, динамічна генерація JWT-секретів та сувора валідація вхідних даних (Regex).
-- **📈 Статистика атак:** Візуалізація заблокованого трафіку за останні 24 години.
-- **🕒 Машина часу (Snapshots):** Автоматичне створення снапшотів конфігурації UFW перед кожною зміною.
-- **🛡 Safe Reload:** Режим тестування (60 секунд) для запобігання втрати доступу.
-- **🤖 Fail2Ban Integration:** Відображення активних банів SSH та можливість розбану.
+Професійний підхід до управління мережевим захистом:
+
+*   **Safe Reload:** Механізм захисту від самоблокування (60-секундний тестовий режим з авто-відкатом).
+*   **Time Machine:** Система автоматичних снапшотів конфігурації перед кожною зміною.
+*   **Attack Analytics:** Інтерактивні графіки заблокованого трафіку за останні 24 години.
+*   **Fail2Ban Integration:** Візуалізація та управління активними банами SSH (перегляд та розбан в один клік).
+*   **Smart Alerts:** Миттєві Telegram-сповіщення про будь-які зміни в правилах або дії адміністраторів.
+*   **Audit Trail:** Повна історія дій користувачів у вбудованому журналі аудиту.
 
 ---
 
 ## 🐳 Швидкий запуск (Docker)
 
-### 1. Клонування
+### 1. Клонування репозиторію
 ```bash
 git clone https://github.com/weby-homelab/ufw-gui.git
 cd ufw-gui
 ```
 
-### 2. Конфігурація
-Створіть файл `.env` з вашим секретним ключем:
+### 2. Налаштування середовища
+Згенеруйте унікальний секретний ключ для JWT-авторизації:
 ```bash
 echo "UFW_GUI_SECRET_KEY=$(openssl rand -hex 32)" > .env
 ```
 
-### 3. Запуск
+### 3. Запуск сервісів
 ```bash
 docker compose up -d --build
 ```
 
-Панель буде доступна на порті **80** (або іншому, налаштованому в `docker-compose.yml`).
+Панель буде доступна за адресою вашого сервера на порті **80**. При першому вході система автоматично запропонує створити обліковий запис суперадміна.
 
 ---
 
-## 🏗 Архітектура (Docker)
+## 🏗️ Архітектура рішення
 
-```mermaid
-graph TD
-    User[👤 Адмін] -->|Port 80| Nginx[🌐 Nginx Container]
-    Nginx -->|Proxy| Frontend[📱 React Container]
-    Nginx -->|Proxy /api| Backend[🐍 FastAPI Container]
-    Backend -->|Host Access| UFW[🛡️ Host UFW]
-```
+Проект розділений на три ізольовані рівні:
 
-## 📜 Ліцензія
-Розповсюджується під ліцензією **MIT**.
+1.  **Frontend (React):** Швидкий та адаптивний SPA-інтерфейс.
+2.  **Backend (FastAPI):** Асинхронний API з високим рівнем захисту та валідації.
+3.  **Reverse Proxy (Nginx):** Забезпечує безпечне проксіювання та роздачу статичних файлів.
+
+---
+
+## 📜 Гілки та версії
+
+*   `main` — **Docker Edition**. Рекомендовано для серверів з Docker-інфраструктурою.
+*   `classic` — **Bare Metal**. Пряме розгортання в ОС через Systemd (без контейнерів).
+
+---
+
+## 🤝 Підтримка та Розробка
 
 <p align="center">
-  ✦ 2026 Weby Homelab ✦<br>
-  Made with ❤️ for Linux Security
+  <img src="https://img.shields.io/github/last-commit/weby-homelab/ufw-gui" alt="GitHub last commit">
+  <img src="https://img.shields.io/github/license/weby-homelab/ufw-gui" alt="License">
 </p>
+
+Розроблено з ❤️ командою **Weby Homelab** для спільноти Linux.
