@@ -9,32 +9,33 @@
 
 <br>
 
-# UFW-GUI v1.2.0 [![Latest Release](https://img.shields.io/github/v/release/weby-homelab/ufw-gui)](https://github.com/weby-homelab/ufw-gui/releases/latest) BARE METAL Edition
-
 <p align="center">
-  <img src="https://img.shields.io/github/last-commit/weby-homelab/ufw-gui" alt="GitHub last commit">
-  <img src="https://img.shields.io/github/license/weby-homelab/ufw-gui" alt="License">
-  <img src="https://img.shields.io/badge/python-3.12+-blue.svg?logo=python&logoColor=white" alt="Python Version">
-  <img src="https://img.shields.io/badge/Platform-Bare--Metal-E4405F?style=flat&logo=linux&logoColor=white" alt="Platform Bare Metal">
+  <img src="https://img.shields.io/github/v/release/weby-homelab/ufw-gui?style=for-the-badge&color=purple" alt="Latest Release">
+  <img src="https://img.shields.io/badge/Branch-Classic_(Bare--Metal)-E4405F?style=for-the-badge&logo=linux&logoColor=white" alt="Branch Classic">
 </p>
 
-**Сучасна веб-панель керування фаєрволом UFW для Debian/Ubuntu.**
+# UFW-GUI: Bare Metal Edition
 
-Ця гілка (`classic`) призначена для розгортання безпосередньо в операційній системі як набір системних сервісів (Systemd) під управлінням Nginx.
+**UFW-GUI** — це сучасна веб-панель для управління фаєрволом UFW, розроблена для прямого розгортання в операційній системі Debian або Ubuntu. Ця версія ідеально підходить для серверів, де використання Docker не є бажаним або можливим.
 
----
-
-## 🚀 Основні можливості v1.2.0
-
-- **🔒 Hardened Security:** Повна ізоляція API (слухає лише `127.0.0.1`), динамічна генерація JWT-секретів та сувора валідація вхідних даних (Regex) для запобігання ін'єкціям.
-- **📈 Статистика атак:** Візуалізація заблокованого трафіку за останні 24 години безпосередньо на дашборді.
-- **🕒 Машина часу (Snapshots):** Автоматичне створення снапшотів конфігурації UFW перед кожною зміною — ви завжди можете відкотитись назад.
-- **🛡 Safe Reload:** Режим тестування (60 секунд), який автоматично повертає старі правила, якщо ви втратили доступ до сервера.
-- **🤖 Fail2Ban Integration:** Відображення активних банів SSH та можливість миттєвого розбану через веб-інтерфейс.
+Гілка `classic` розгортається як набір системних сервісів (**Systemd**) під управлінням **Nginx**.
 
 ---
 
-## 🛠 Встановлення (Bare Metal)
+## 🛡️ Безпека та Функціонал
+
+Професійний підхід до управління мережевим захистом:
+
+*   **Safe Reload:** Механізм захисту від самоблокування (60-секундний тестовий режим з авто-відкатом).
+*   **Time Machine:** Система автоматичних снапшотів конфігурації перед кожною зміною.
+*   **Attack Analytics:** Інтерактивні графіки заблокованого трафіку за останні 24 години.
+*   **Fail2Ban Integration:** Візуалізація та управління активними банами SSH.
+*   **Smart Alerts:** Миттєві Telegram-сповіщення про дії адміністраторів.
+*   **Audit Trail:** Детальна історія всіх змін у вбудованому журналі.
+
+---
+
+## 🛠️ Встановлення (Bare Metal)
 
 ### 1. Підготовка системи
 ```bash
@@ -54,49 +55,43 @@ python3 -m venv venv
 cd ../frontend
 npm install
 npm run build
-# Копіюємо у веб-директорію
+# Копіювання у веб-директорію
 sudo mkdir -p /var/www/html/ufw-gui
 sudo cp -r dist/* /var/www/html/ufw-gui/
 sudo chown -R www-data:www-data /var/www/html/ufw-gui/
 ```
 
-### 4. Налаштування сервісу
-Створіть файл `/etc/systemd/system/ufw-gui-backend.service`:
-```ini
-[Unit]
-Description=UFW-GUI Backend
-After=network.target
-
-[Service]
-User=root
-WorkingDirectory=/path/to/ufw-gui/backend
-Environment="UFW_GUI_SECRET_KEY=$(openssl rand -hex 32)"
-ExecStart=/path/to/ufw-gui/backend/venv/bin/uvicorn main:app --host 127.0.0.1 --port 8000
-Restart=always
-
-[Install]
-WantedBy=multi-user.target
+### 4. Налаштування Systemd
+Створіть сервіс для бекенду:
+```bash
+sudo nano /etc/systemd/system/ufw-gui-backend.service
 ```
-
-### 5. Конфігурація Nginx
-Налаштуйте проксіювання на порт 8000 для API та роздачу статичних файлів для `/`.
+*(Детальні конфігурації сервісу та Nginx доступні у файлі INSTRUCTIONS.md цієї гілки).*
 
 ---
 
-## 🏗 Архітектура (Classic)
+## 🏗️ Архітектура рішення
 
-```mermaid
-graph LR
-    User[👤 Адмін] -->|Port 80/443| Nginx[🌐 Nginx]
-    Nginx -->|Static| Files[📄 Frontend Files]
-    Nginx -->|Proxy /api| Backend[🐍 FastAPI]
-    Backend -->|Shell| UFW[🛡️ UFW / Fail2Ban]
-```
+У цій версії всі компоненти працюють безпосередньо в середовищі хоста:
 
-## 📜 Ліцензія
-Розповсюджується під ліцензією **MIT**.
+1.  **Frontend:** Статичні файли, що обслуговуються локальним Nginx.
+2.  **Backend:** FastAPI додаток, що працює під управлінням Uvicorn як системний демон.
+3.  **Security:** Пряма взаємодія з локальними утилітами `ufw` та `fail2ban`.
+
+---
+
+## 📜 Гілки та версії
+
+*   `main` — **Docker Edition**. Рекомендовано для швидкого розгортання.
+*   `classic` — **Bare Metal**. Пряме розгортання в ОС.
+
+---
+
+## 🤝 Підтримка та Розробка
 
 <p align="center">
-  ✦ 2026 Weby Homelab ✦<br>
-  Made with ❤️ for Linux Security
+  <img src="https://img.shields.io/github/last-commit/weby-homelab/ufw-gui" alt="GitHub last commit">
+  <img src="https://img.shields.io/github/license/weby-homelab/ufw-gui" alt="License">
 </p>
+
+Розроблено з ❤️ командою **Weby Homelab** для спільноти Linux.
