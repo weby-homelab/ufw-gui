@@ -11,14 +11,14 @@
 
 <p align="center">
   <img src="https://img.shields.io/github/v/release/weby-homelab/ufw-gui?style=for-the-badge&color=purple" alt="Latest Release">
-  <img src="https://img.shields.io/badge/Branch-Main_(Docker)-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Branch Main">
+  <img src="https://img.shields.io/badge/Branch-Classic_(Bare--Metal)-E4405F?style=for-the-badge&logo=linux&logoColor=white" alt="Branch Classic">
 </p>
 
-# UFW-GUI: Docker Edition
+# UFW-GUI: Bare Metal Edition
 
-**UFW-GUI** — це сучасна, легка та безпечна веб-панель для управління фаєрволом UFW у дистрибутивах Debian та Ubuntu. Проект створений для системних адміністраторів, які цінують візуальний контроль, безпеку та швидкість налаштування.
+**UFW-GUI** — це сучасна веб-панель для управління фаєрволом UFW, розроблена для прямого розгортання в операційній системі Debian або Ubuntu. Ця версія ідеально підходить для серверів, де використання Docker не є бажаним або можливим.
 
-Гілка `main` призначена для швидкого розгортання через **Docker Compose**. Усі сервіси (Nginx, Backend, Frontend) упаковані в контейнери для максимальної ізоляції.
+Гілка `classic` розгортається як набір системних сервісів (**Systemd**) под управлінням **Nginx**.
 
 ---
 
@@ -29,32 +29,44 @@
 *   **Safe Reload:** Механізм захисту від самоблокування (60-секундний тестовий режим з авто-відкатом).
 *   **Time Machine:** Система автоматичних снапшотів конфігурації перед кожною зміною.
 *   **Attack Analytics:** Інтерактивні графіки заблокованого трафіку за останні 24 години.
-*   **Fail2Ban Integration:** Візуалізація та управління активними банами SSH (перегляд та розбан в один клік).
-*   **Smart Alerts:** Миттєві Telegram-сповіщення про будь-які зміни в правилах або дії адміністраторів.
-*   **Audit Trail:** Повна історія дій користувачів у вбудованому журналі аудиту.
+*   **Fail2Ban Integration:** Візуалізація та управління активними банами SSH.
+*   **Smart Alerts:** Миттєві Telegram-сповіщення про дії адміністраторів.
+*   **Audit Trail:** Детальна історія всіх змін у вбудованому журналі.
 
 ---
 
-## 🐳 Швидкий запуск (Docker)
+## 🛠️ Встановлення (Bare Metal)
 
-### 1. Клонування репозиторію
+### 1. Підготовка системи
 ```bash
-git clone https://github.com/weby-homelab/ufw-gui.git
-cd ufw-gui
+sudo apt update && sudo apt install -y python3-venv python3-pip nodejs npm nginx ufw git
 ```
 
-### 2. Налаштування середовища
-Згенеруйте унікальний секретний ключ для JWT-авторизації:
+### 2. Клонування та Бекенд
 ```bash
-echo "UFW_GUI_SECRET_KEY=$(openssl rand -hex 32)" > .env
+git clone -b classic https://github.com/weby-homelab/ufw-gui.git
+cd ufw-gui/backend
+python3 -m venv venv
+./venv/bin/pip install -r requirements.txt
 ```
 
-### 3. Запуск сервісів
+### 3. Збирання Фронтенду
 ```bash
-docker compose up -d --build
+cd ../frontend
+npm install
+npm run build
+# Копіювання у веб-директорію
+sudo mkdir -p /var/www/html/ufw-gui
+sudo cp -r dist/* /var/www/html/ufw-gui/
+sudo chown -R www-data:www-data /var/www/html/ufw-gui/
 ```
 
-Панель буде доступна за адресою вашого сервера на порті **80**. При першому вході система автоматично запропонує створити обліковий запис суперадміна.
+### 4. Налаштування Systemd
+Створіть сервіс для бекенду:
+```bash
+sudo nano /etc/systemd/system/ufw-gui-backend.service
+```
+*(Детальні конфігурації сервісу та Nginx доступні у файлі INSTRUCTIONS.md цієї гілки).*
 
 ---
 
@@ -70,18 +82,18 @@ docker compose up -d --build
 
 ## 🏗️ Архітектура рішення
 
-Проект розділений на три ізольовані рівні:
+У цій версії всі компоненти працюють безпосередньо в середовищі хоста:
 
-1.  **Frontend (React):** Швидкий та адаптивний SPA-інтерфейс.
-2.  **Backend (FastAPI):** Асинхронний API з високим рівнем захисту та валідації.
-3.  **Reverse Proxy (Nginx):** Забезпечує безпечне проксіювання та роздачу статичних файлів.
+1.  **Frontend:** Статичні файли, що обслуговуються локальним Nginx.
+2.  **Backend:** FastAPI додаток, що працює під управлінням Uvicorn як системний демон.
+3.  **Security:** Пряма взаємодія з локальними утилітами `ufw` та `fail2ban`.
 
 ---
 
 ## 📜 Гілки та версії
 
-*   `main` — **Docker Edition**. Рекомендовано для серверів з Docker-інфраструктурою.
-*   `classic` — **Bare Metal**. Пряме розгортання в ОС через Systemd (без контейнерів).
+*   `main` — **Docker Edition**. Рекомендовано для швидкого розгортання.
+*   `classic` — **Bare Metal**. Пряме розгортання в ОС.
 
 ---
 
