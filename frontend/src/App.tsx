@@ -270,7 +270,7 @@ function App() {
         {view === "admin" && (
           <div className="wide-pane">
             <section className="glass-card"><h2>Audit Logs</h2><div className="table-container"><table className="log-table"><thead><tr><th>Time</th><th>User</th><th>Action</th><th>Details</th></tr></thead>
-              <tbody>{auditLogs.map((l,i)=>(<tr key={i}><td>{l.ts?.split("T")[1]?.slice(0,8)}</td><td>{l.user}</td><td><b>{l.action}</b></td><td style={{fontSize:"0.85em"}}>{l.details}</td></tr>))}
+              <tbody>{auditLogs.map((l,i)=>(<tr key={i}><td>{l.ts?.includes("T") ? l.ts.split("T")[1].split(".")[0] : l.ts}</td><td>{l.user}</td><td><b>{l.action}</b></td><td style={{fontSize:"0.85em"}}>{l.details}</td></tr>))}
               {auditLogs.length === 0 && <tr><td colSpan={4} className="empty">No logs</td></tr>}
               </tbody></table></div></section>
             <section className="glass-card"><h2>User Management</h2><div className="tag-container">
