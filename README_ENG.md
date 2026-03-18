@@ -58,6 +58,16 @@ The panel will be available at your server's address on port **80**. On the firs
 
 ---
 
+## 📸 Screenshots
+
+<p align="center">
+  <img src="ufw-gui-1.png" alt="UFW-GUI Dashboard" width="30%">
+  <img src="ufw-gui-2.png" alt="UFW-GUI Rules Management" width="30%">
+  <img src="ufw-gui-3.png" alt="UFW-GUI Settings" width="30%">
+</p>
+
+---
+
 ## 🏗️ Architecture
 
 The project is split into three isolated layers:
