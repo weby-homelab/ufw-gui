@@ -3,45 +3,46 @@
     <img src="https://img.shields.io/badge/🇬🇧_English-00D4FF?style=for-the-badge&logo=readme&logoColor=white" alt="English README">
   </a>
   <a href="README.md">
-    <img src="https://img.shields.io/badge/🇺🇦_Українська-FF4D00?style=for-the-badge&logo=readme&logoColor=white" alt="Українська версія">
+    <img src="https://img.shields.io/badge/🇺🇦_Українська-FF4D00?style=for-the-badge&logo=readme&logoColor=white" alt="Ukrainian version">
   </a>
 </p>
 
 <br>
 
-# UFW-GUI v1.2.0 [![Latest Release](https://img.shields.io/github/v/release/weby-homelab/ufw-gui)](https://github.com/weby-homelab/ufw-gui/releases/latest) BARE METAL Edition
-
 <p align="center">
-  <img src="https://img.shields.io/github/last-commit/weby-homelab/ufw-gui" alt="GitHub last commit">
-  <img src="https://img.shields.io/github/license/weby-homelab/ufw-gui" alt="License">
-  <img src="https://img.shields.io/badge/python-3.12+-blue.svg?logo=python&logoColor=white" alt="Python Version">
-  <img src="https://img.shields.io/badge/Platform-Bare--Metal-E4405F?style=flat&logo=linux&logoColor=white" alt="Platform Bare Metal">
+  <img src="https://img.shields.io/github/v/release/weby-homelab/ufw-gui?style=for-the-badge&color=purple" alt="Latest Release">
+  <img src="https://img.shields.io/badge/Branch-Classic_(Bare--Metal)-E4405F?style=for-the-badge&logo=linux&logoColor=white" alt="Branch Classic">
 </p>
 
-**A modern web interface for managing the UFW firewall on Debian/Ubuntu systems.**
+# UFW-GUI: Bare Metal Edition
 
-This branch (`classic`) is designed for deployment directly in the operating system as a set of system services (Systemd) served by Nginx.
+**UFW-GUI** is a modern web interface for managing the UFW firewall, designed for direct deployment on Debian or Ubuntu operating systems. This version is ideal for servers where using Docker is not desired or possible.
 
----
-
-## 🚀 Key Features v1.2.0
-
-- **🔒 Hardened Security:** Complete API isolation (listening only on `127.0.0.1`), dynamic JWT secret generation, and strict input validation (Regex) to prevent command injection.
-- **📈 Attack Statistics:** Visualize blocked traffic from the last 24 hours directly on the main dashboard.
-- **🕒 Time Machine (Snapshots):** Automatic UFW configuration snapshots before every change — you can always roll back.
-- **🛡 Safe Reload:** Testing mode (60 seconds) that automatically reverts rules if you lose connection to your server.
-- **🤖 Fail2Ban Integration:** View active SSH bans and instantly unban IPs via the web interface.
+The `classic` branch is deployed as a set of system services (**Systemd**) managed by **Nginx**.
 
 ---
 
-## 🛠 Installation (Bare Metal)
+## 🛡️ Security & Features
+
+Professional approach to network protection management:
+
+*   **Safe Reload:** Self-locking protection mechanism (60-second test mode with auto-rollback).
+*   **Time Machine:** Automatic configuration snapshots system created before every change.
+*   **Attack Analytics:** Interactive charts showing blocked traffic for the last 24 hours.
+*   **Fail2Ban Integration:** Visualization and management of active SSH bans.
+*   **Smart Alerts:** Instant Telegram notifications about administrative actions.
+*   **Audit Trail:** Detailed history of all changes in the built-in log.
+
+---
+
+## 🛠️ Installation (Bare Metal)
 
 ### 1. System Preparation
 ```bash
 sudo apt update && sudo apt install -y python3-venv python3-pip nodejs npm nginx ufw git
 ```
 
-### 2. Cloning and Backend
+### 2. Cloning & Backend
 ```bash
 git clone -b classic https://github.com/weby-homelab/ufw-gui.git
 cd ufw-gui/backend
@@ -60,43 +61,37 @@ sudo cp -r dist/* /var/www/html/ufw-gui/
 sudo chown -R www-data:www-data /var/www/html/ufw-gui/
 ```
 
-### 4. Service Setup
-Create the file `/etc/systemd/system/ufw-gui-backend.service`:
-```ini
-[Unit]
-Description=UFW-GUI Backend
-After=network.target
-
-[Service]
-User=root
-WorkingDirectory=/path/to/ufw-gui/backend
-Environment="UFW_GUI_SECRET_KEY=$(openssl rand -hex 32)"
-ExecStart=/path/to/ufw-gui/backend/venv/bin/uvicorn main:app --host 127.0.0.1 --port 8000
-Restart=always
-
-[Install]
-WantedBy=multi-user.target
+### 4. Systemd Setup
+Create a service for the backend:
+```bash
+sudo nano /etc/systemd/system/ufw-gui-backend.service
 ```
-
-### 5. Nginx Configuration
-Configure a reverse proxy to port 8000 for the API and serve static files for `/`.
+*(Detailed service and Nginx configurations are available in the INSTRUCTIONS.md file of this branch).*
 
 ---
 
-## 🏗 Architecture (Classic)
+## 🏗️ Architecture
 
-```mermaid
-graph LR
-    User[👤 Admin] -->|Port 80/443| Nginx[🌐 Nginx]
-    Nginx -->|Static| Files[📄 Frontend Files]
-    Nginx -->|Proxy /api| Backend[🐍 FastAPI]
-    Backend -->|Shell| UFW[🛡️ UFW / Fail2Ban]
-```
+In this version, all components run directly in the host environment:
 
-## 📜 License
-Distributed under the **MIT** License.
+1.  **Frontend:** Static files served by local Nginx.
+2.  **Backend:** FastAPI application running under Uvicorn as a system daemon.
+3.  **Security:** Direct interaction with local `ufw` and `fail2ban` utilities.
+
+---
+
+## 📜 Branches & Versions
+
+*   `main` — **Docker Edition**. Recommended for quick deployment.
+*   `classic` — **Bare Metal**. Direct OS deployment.
+
+---
+
+## 🤝 Support & Development
 
 <p align="center">
-  ✦ 2026 Weby Homelab ✦<br>
-  Made with ❤️ for Linux Security
+  <img src="https://img.shields.io/github/last-commit/weby-homelab/ufw-gui" alt="GitHub last commit">
+  <img src="https://img.shields.io/github/license/weby-homelab/ufw-gui" alt="License">
 </p>
+
+Developed with ❤️ by the **Weby Homelab** team for the Linux community.
