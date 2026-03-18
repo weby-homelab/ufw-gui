@@ -70,6 +70,16 @@ sudo nano /etc/systemd/system/ufw-gui-backend.service
 
 ---
 
+## 📸 Screenshots
+
+<p align="center">
+  <img src="ufw-gui-1.png" alt="UFW-GUI Dashboard" width="30%">
+  <img src="ufw-gui-2.png" alt="UFW-GUI Rules Management" width="30%">
+  <img src="ufw-gui-3.png" alt="UFW-GUI Settings" width="30%">
+</p>
+
+---
+
 ## 🏗️ Architecture
 
 In this version, all components run directly in the host environment:
