@@ -210,29 +210,45 @@ async def get_ufw_logs(u=Depends(get_current_user)):
 
     parsed = []
     conn = sqlite3.connect(DB_FILE)
-    for line in lines[-500:]:
+    # Take latest 1000 lines for analysis
+    for line in lines[-1000:]:
         if "[UFW BLOCK]" in line or "[UFW REJECT]" in line:
             src = re.search(r"SRC=([\d\.]+)", line)
             proto = re.search(r"PROTO=(\w+)", line)
             dpt = re.search(r"DPT=(\d+)", line)
             if src: 
-                # Better time parsing: try to find HH:MM:SS
+                # Modern logs often have ISO timestamps, legacy have MMM DD HH:MM:SS
                 time_match = re.search(r"(\d{2}:\d{2}:\d{2})", line)
                 log_time = time_match.group(1) if time_match else line[:15].strip()
                 item = {"time": log_time, "src": src.group(1), "proto": proto.group(1) if proto else "?", "port": dpt.group(1) if dpt else "?"}
                 parsed.append(item)
-                conn.execute("INSERT OR IGNORE INTO drops (ts, src, proto, port) VALUES (?, ?, ?, ?)", (datetime.now().isoformat(), item["src"], item["proto"], item["port"]))
+                # Use UTC for consistency in database
+                conn.execute("INSERT OR IGNORE INTO drops (ts, src, proto, port) VALUES (?, ?, ?, ?)", (datetime.utcnow().isoformat(), item["src"], item["proto"], item["port"]))
     conn.commit()
     conn.close()
+    # Return latest 40 entries, sorted by most recent first
     return {"logs": parsed[::-1][:40]}
 
 @app.get("/api/stats")
 async def get_stats(u=Depends(get_current_user)):
     conn = sqlite3.connect(DB_FILE)
-    query = "SELECT strftime('%H:', ts) || (CAST(strftime('%M', ts) AS INTEGER) / 10) || '0' as interval, count(*) FROM drops WHERE ts > datetime('now', '-24 hours') GROUP BY date(ts), strftime('%H', ts), (CAST(strftime('%M', ts) AS INTEGER) / 10) ORDER BY date(ts), strftime('%H', ts), (CAST(strftime('%M', ts) AS INTEGER) / 10)"
+    # Corrected query: use UTC 'now', fixed grouping for 10-min intervals
+    query = """
+        SELECT strftime('%H:%M', ts) as interval, count(*) 
+        FROM drops 
+        WHERE ts > datetime('now', '-24 hours') 
+        GROUP BY strftime('%Y-%m-%d %H', ts), (CAST(strftime('%M', ts) AS INTEGER) / 10) 
+        ORDER BY ts ASC
+    """
     res = conn.execute(query).fetchall()
     conn.close()
-    return {"hourly": [{"hour": r[0], "count": r[1]} for r in res]}
+    # Format intervals to look like 12:40, 12:50 etc.
+    formatted = []
+    for r in res:
+        h_m = r[0].split(":")
+        interval = f"{h_m[0]}:{int(h_m[1])//10}0"
+        formatted.append({"hour": interval, "count": r[1]})
+    return {"hourly": formatted}
 
 # === Fail2Ban ===
 @app.get("/api/fail2ban/status")
