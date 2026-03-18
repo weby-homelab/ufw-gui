@@ -216,7 +216,10 @@ async def get_ufw_logs(u=Depends(get_current_user)):
             proto = re.search(r"PROTO=(\w+)", line)
             dpt = re.search(r"DPT=(\d+)", line)
             if src: 
-                item = {"time": line[:15], "src": src.group(1), "proto": proto.group(1) if proto else "?", "port": dpt.group(1) if dpt else "?"}
+                # Better time parsing: try to find HH:MM:SS
+                time_match = re.search(r"(\d{2}:\d{2}:\d{2})", line)
+                log_time = time_match.group(1) if time_match else line[:15].strip()
+                item = {"time": log_time, "src": src.group(1), "proto": proto.group(1) if proto else "?", "port": dpt.group(1) if dpt else "?"}
                 parsed.append(item)
                 conn.execute("INSERT OR IGNORE INTO drops (ts, src, proto, port) VALUES (?, ?, ?, ?)", (datetime.now().isoformat(), item["src"], item["proto"], item["port"]))
     conn.commit()
