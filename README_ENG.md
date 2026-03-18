@@ -11,14 +11,14 @@
 
 <p align="center">
   <img src="https://img.shields.io/github/v/release/weby-homelab/ufw-gui?style=for-the-badge&color=purple" alt="Latest Release">
-  <img src="https://img.shields.io/badge/Branch-Main_(Docker)-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Branch Main">
+  <img src="https://img.shields.io/badge/Branch-Classic_(Bare--Metal)-E4405F?style=for-the-badge&logo=linux&logoColor=white" alt="Branch Classic">
 </p>
 
-# UFW-GUI: Docker Edition
+# UFW-GUI: Bare Metal Edition
 
-**UFW-GUI** is a modern, lightweight, and secure web interface for managing the UFW firewall on Debian and Ubuntu distributions. This project is built for system administrators who value visual control, security, and deployment speed.
+**UFW-GUI** is a modern web interface for managing the UFW firewall, designed for direct deployment on Debian or Ubuntu operating systems. This version is ideal for servers where using Docker is not desired or possible.
 
-The `main` branch is designed for quick deployment through **Docker Compose**. All services (Nginx, Backend, Frontend) are packaged in containers for maximum isolation.
+The `classic` branch is deployed as a set of system services (**Systemd**) managed by **Nginx**.
 
 ---
 
@@ -29,42 +29,44 @@ Professional approach to network protection management:
 *   **Safe Reload:** Self-locking protection mechanism (60-second test mode with auto-rollback).
 *   **Time Machine:** Automatic configuration snapshots system created before every change.
 *   **Attack Analytics:** Interactive charts showing blocked traffic for the last 24 hours.
-*   **Fail2Ban Integration:** Visualization and management of active SSH bans (view and unban in one click).
-*   **Smart Alerts:** Instant Telegram notifications about any rule changes or administrative actions.
-*   **Audit Trail:** Complete history of user actions in the built-in audit log.
+*   **Fail2Ban Integration:** Visualization and management of active SSH bans.
+*   **Smart Alerts:** Instant Telegram notifications about administrative actions.
+*   **Audit Trail:** Detailed history of all changes in the built-in log.
 
 ---
 
-## 🐳 Quick Start (Docker)
+## 🛠️ Installation (Bare Metal)
 
-### 1. Clone the repository
+### 1. System Preparation
 ```bash
-git clone https://github.com/weby-homelab/ufw-gui.git
-cd ufw-gui
+sudo apt update && sudo apt install -y python3-venv python3-pip nodejs npm nginx ufw git
 ```
 
-### 2. Environment Configuration
-Generate a unique secret key for JWT authorization:
+### 2. Cloning & Backend
 ```bash
-echo "UFW_GUI_SECRET_KEY=$(openssl rand -hex 32)" > .env
+git clone -b classic https://github.com/weby-homelab/ufw-gui.git
+cd ufw-gui/backend
+python3 -m venv venv
+./venv/bin/pip install -r requirements.txt
 ```
 
-### 3. Start Services
+### 3. Frontend Build
 ```bash
-docker compose up -d --build
+cd ../frontend
+npm install
+npm run build
+# Copy to web directory
+sudo mkdir -p /var/www/html/ufw-gui
+sudo cp -r dist/* /var/www/html/ufw-gui/
+sudo chown -R www-data:www-data /var/www/html/ufw-gui/
 ```
 
-The panel will be available at your server's address on port **80**. On the first login, the system will automatically prompt you to create a superadmin account.
-
----
-
-## 📸 Screenshots
-
-<p align="center">
-  <img src="ufw-gui-1.png" alt="UFW-GUI Dashboard" width="30%">
-  <img src="ufw-gui-2.png" alt="UFW-GUI Rules Management" width="30%">
-  <img src="ufw-gui-3.png" alt="UFW-GUI Settings" width="30%">
-</p>
+### 4. Systemd Setup
+Create a service for the backend:
+```bash
+sudo nano /etc/systemd/system/ufw-gui-backend.service
+```
+*(Detailed service and Nginx configurations are available in the INSTRUCTIONS.md file of this branch).*
 
 ---
 
@@ -80,18 +82,18 @@ The panel will be available at your server's address on port **80**. On the firs
 
 ## 🏗️ Architecture
 
-The project is split into three isolated layers:
+In this version, all components run directly in the host environment:
 
-1.  **Frontend (React):** Fast and responsive SPA interface.
-2.  **Backend (FastAPI):** Asynchronous API with a high level of protection and validation.
-3.  **Reverse Proxy (Nginx):** Provides secure proxying and static file serving.
+1.  **Frontend:** Static files served by local Nginx.
+2.  **Backend:** FastAPI application running under Uvicorn as a system daemon.
+3.  **Security:** Direct interaction with local `ufw` and `fail2ban` utilities.
 
 ---
 
 ## 📜 Branches & Versions
 
-*   `main` — **Docker Edition**. Recommended for servers with Docker infrastructure.
-*   `classic` — **Bare Metal**. Direct OS deployment via Systemd (no containers).
+*   `main` — **Docker Edition**. Recommended for quick deployment.
+*   `classic` — **Bare Metal**. Direct OS deployment.
 
 ---
 
