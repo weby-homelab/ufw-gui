@@ -9,73 +9,68 @@
 
 <br>
 
-# 🛡️ UFW-GUI (Weby Homelab)
-*Легке, швидке та мінімалістичне керування UFW.*
+# UFW-GUI v1.2.0 — СВІТЛО⚡️ БЕЗПЕКА [![Latest Release](https://img.shields.io/github/v/release/weby-homelab/ufw-gui)](https://github.com/weby-homelab/ufw-gui/releases/latest) DOCKER Edition
 
-[![Latest Release](https://img.shields.io/github/v/release/weby-homelab/ufw-gui)](https://github.com/weby-homelab/ufw-gui/releases/latest)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![System](https://img.shields.io/badge/system-Debian_|_Ubuntu-orange.svg)]()
+<p align="center">
+  <img src="https://img.shields.io/github/last-commit/weby-homelab/ufw-gui" alt="GitHub last commit">
+  <img src="https://img.shields.io/github/license/weby-homelab/ufw-gui" alt="License">
+  <img src="https://img.shields.io/badge/python-3.12+-blue.svg?logo=python&logoColor=white" alt="Python Version">
+  <img src="https://img.shields.io/badge/Platform-Docker-2496ED?style=flat&logo=docker&logoColor=white" alt="Platform Docker">
+</p>
 
-**UFW-GUI** — це мінімалістична веб-панель для керування `UFW` (Uncomplicated Firewall) та `Fail2Ban`. Вона створена для проєктів, де не потрібні складні зони Firewalld, а важлива швидкість налаштування та наочність правил. Ідеальний вибір для персональних серверів та легких VPS.
+**Сучасна веб-панель керування фаєрволом UFW для Debian/Ubuntu.**
+
+Ця гілка (`main`) призначена для швидкого розгортання через **Docker Compose**. Усі сервіси (Nginx, Backend, Frontend) упаковані в контейнери для максимальної ізоляції.
 
 ---
 
-## 🧩 Архітектура системи
+## 🚀 Основні можливості v1.2.0
+
+- **🔒 Hardened Security:** Повна ізоляція API, динамічна генерація JWT-секретів та сувора валідація вхідних даних (Regex).
+- **📈 Статистика атак:** Візуалізація заблокованого трафіку за останні 24 години.
+- **🕒 Машина часу (Snapshots):** Автоматичне створення снапшотів конфігурації UFW перед кожною зміною.
+- **🛡 Safe Reload:** Режим тестування (60 секунд) для запобігання втрати доступу.
+- **🤖 Fail2Ban Integration:** Відображення активних банів SSH та можливість розбану.
+
+---
+
+## 🐳 Швидкий запуск (Docker)
+
+### 1. Клонування
+```bash
+git clone https://github.com/weby-homelab/ufw-gui.git
+cd ufw-gui
+```
+
+### 2. Конфігурація
+Створіть файл `.env` з вашим секретним ключем:
+```bash
+echo "UFW_GUI_SECRET_KEY=$(openssl rand -hex 32)" > .env
+```
+
+### 3. Запуск
+```bash
+docker compose up -d --build
+```
+
+Панель буде доступна на порті **80** (або іншому, налаштованому в `docker-compose.yml`).
+
+---
+
+## 🏗 Архітектура (Docker)
 
 ```mermaid
 graph TD
-    User((Адміністратор)) -->|HTTPS / PWA| UI[Web Dashboard]
-    
-    subgraph "UFW-GUI Backend"
-        UI -->|REST API| FastAPI[FastAPI Service]
-        FastAPI -->|Exec| UFW[UFW Engine]
-        FastAPI -->|Exec| F2B[Fail2Ban Client]
-    end
-
-    subgraph "Operating System"
-        UFW -->|Apply Rules| IPT[iptables / nftables]
-        F2B -->|Block IPs| IPT
-    end
-
-    FastAPI -->|Storage| JSON[(users.json)]
+    User[👤 Адмін] -->|Port 80| Nginx[🌐 Nginx Container]
+    Nginx -->|Proxy| Frontend[📱 React Container]
+    Nginx -->|Proxy /api| Backend[🐍 FastAPI Container]
+    Backend -->|Host Access| UFW[🛡️ Host UFW]
 ```
 
----
+## 📜 Ліцензія
+Розповсюджується під ліцензією **MIT**.
 
-## ✨ Основні можливості
-
-- **⚡ Мобільний інтерфейс:** Керуйте безпекою сервера прямо зі смартфона. Адаптивний дизайн дозволяє швидко відкрити або закрити порт "на ходу".
-- **🧱 Спрощене керування правилами:** Додавайте та видаляйте дозволи за лічені секунди. Жодних складних конфігураційних файлів.
-- **🚫 Fail2Ban Monitoring:** Переглядайте список заблокованих IP та розбанюйте їх в один клік.
-- **🔒 Безпека понад усе:** Вбудований захист від Brute Force для самої панелі та авторизація через JWT.
-- **🐳 Docker Ready:** Повна підтримка розгортання через Docker для ізоляції оточення.
-
----
-
-## 🛠️ Швидкий старт
-
-### Через Docker Compose
-```yaml
-services:
-  ufw-gui:
-    image: webyhomelab/ufw-gui:latest
-    container_name: ufw-gui
-    privileged: true
-    network_mode: host
-    restart: unless-stopped
-    env_file: .env
-```
-*Важливо: `privileged: true` та `network_mode: host` обов'язкові для роботи з UFW хостової системи.*
-
----
-
-## 📋 Системні вимоги
-- **ОС:** Debian 11/12, Ubuntu 20.04/22.04/24.04.
-- **Залежності:** `ufw`, `fail2ban` (опціонально).
-- **Доступ:** Права `root`.
-
----
 <p align="center">
-  Made with ❤️ in Kyiv under air raid sirens and blackouts<br>
-  <strong>✦ 2026 Weby Homelab ✦</strong>
+  ✦ 2026 Weby Homelab ✦<br>
+  Made with ❤️ for Linux Security
 </p>
