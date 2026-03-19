@@ -37,44 +37,48 @@
 
 ## 🐳 Швидкий запуск (Docker)
 
-### 1. Клонування репозиторію
+## 🐳 Швидкий запуск (Docker)
+
+Найпростіший спосіб запустити **UFW-GUI** — використовувати офіційний Docker-образ:
+
 ```bash
-git clone https://github.com/weby-homelab/ufw-gui.git
-cd ufw-gui
+docker run -d \
+  --name ufw-gui \
+  --network host \
+  --privileged \
+  -v /etc/ufw:/etc/ufw \
+  -v /var/run/fail2ban/fail2ban.sock:/var/run/fail2ban/fail2ban.sock \
+  -v /var/log:/var/log:ro \
+  webyhomelab/ufw-gui:latest
 ```
 
-### 2. Налаштування середовища
-Згенеруйте унікальний секретний ключ для JWT-авторизації:
-```bash
-echo "UFW_GUI_SECRET_KEY=$(openssl rand -hex 32)" > .env
+Або через **docker-compose.yml**:
+
+```yaml
+services:
+  ufw-gui:
+    image: webyhomelab/ufw-gui:latest
+    container_name: ufw-gui
+    network_mode: host
+    privileged: true
+    volumes:
+      - /etc/ufw:/etc/ufw
+      - /var/run/fail2ban/fail2ban.sock:/var/run/fail2ban/fail2ban.sock
+      - /var/log:/var/log:ro
+    restart: always
 ```
 
-### 3. Запуск сервісів
-```bash
-docker compose up -d --build
-```
-
-Панель буде доступна за адресою вашого сервера на порті **80**. При першому вході система автоматично запропонує створити обліковий запис суперадміна.
-
----
-
-## 📸 Скріншоти інтерфейсу
-
-<p align="center">
-  <img src="ufw-gui-1.png" alt="UFW-GUI Dashboard" width="30%">
-  <img src="ufw-gui-2.png" alt="UFW-GUI Rules Management" width="30%">
-  <img src="ufw-gui-3.png" alt="UFW-GUI Settings" width="30%">
-</p>
+Панель буде доступна за адресою вашого сервера на порті **8080**. При першому вході система автоматично запропонує створити обліковий запис суперадміна.
 
 ---
 
 ## 🏗️ Архітектура рішення
 
-Проект розділений на три ізольовані рівні:
+Проект побудований як **All-in-One Docker Image**:
 
-1.  **Frontend (React):** Швидкий та адаптивний SPA-інтерфейс.
-2.  **Backend (FastAPI):** Асинхронний API з високим рівнем захисту та валідації.
-3.  **Reverse Proxy (Nginx):** Забезпечує безпечне проксіювання та роздачу статичних файлів.
+1.  **Frontend (React):** Швидкий та адаптивний SPA-інтерфейс, зібраний та вбудований у бекенд.
+2.  **Backend (FastAPI):** Асинхронний API, який обслуговує запити та роздає статичні файли фронтенду.
+3.  **OS Integration:** Прямий доступ до `ufw` та `fail2ban.sock` через `network: host` та `privileged` режим.
 
 ---
 

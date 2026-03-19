@@ -142,7 +142,7 @@ function App() {
   return (
     <div className="container-fluid">
       <header className="glass-card header">
-        <div className="brand"><h1>UFW-GUI</h1><span className="badge">v1.2.0</span></div>
+        <div className="brand"><h1>UFW-GUI</h1><span className="badge">v1.3.0</span></div>
         <nav className="view-nav">
           <button className={view === "config" ? "nav-btn active" : "nav-btn"} onClick={() => setView("config")}>Dashboard</button>
           <button className={view === "snapshots" ? "nav-btn active" : "nav-btn"} onClick={() => setView("snapshots")}>Snapshots</button>
@@ -298,7 +298,7 @@ function App() {
         )}
 
       </main>
-      <footer className="footer">© 2026 Weby Homelab • UFW-GUI v1.2.0 (Debian/Ubuntu)</footer>
+      <footer className="footer">© 2026 Weby Homelab • UFW-GUI v1.3.0 (Debian/Ubuntu)</footer>
     </div>
   )
 }
