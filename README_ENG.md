@@ -18,78 +18,65 @@
 
 **UFW-GUI** is a modern, lightweight, and secure web interface for managing the UFW firewall on Debian and Ubuntu distributions. This project is built for system administrators who value visual control, security, and deployment speed.
 
-The `main` branch is designed for quick deployment through **Docker Compose**. All services (Nginx, Backend, Frontend) are packaged in containers for maximum isolation.
-
 ---
 
 ## 🛡️ Security & Features
 
-Professional approach to network protection management:
-
+*   **All-in-One Docker Image:** Simple deployment with a single container.
 *   **Safe Reload:** Self-locking protection mechanism (60-second test mode with auto-rollback).
-*   **Time Machine:** Automatic configuration snapshots system created before every change.
+*   **Time Machine:** Automatic configuration snapshots created before every change.
 *   **Attack Analytics:** Interactive charts showing blocked traffic for the last 24 hours.
-*   **Fail2Ban Integration:** Visualization and management of active SSH bans (view and unban in one click).
-*   **Smart Alerts:** Instant Telegram notifications about any rule changes or administrative actions.
-*   **Audit Trail:** Complete history of user actions in the built-in audit log.
+*   **Fail2Ban Integration:** Management of active bans (view and unban in one click).
+*   **Smart Alerts:** Instant Telegram notifications about administrative actions.
 
 ---
 
 ## 🐳 Quick Start (Docker)
 
-### 1. Clone the repository
+The fastest way to run **UFW-GUI** is using the official Docker image:
+
 ```bash
-git clone https://github.com/weby-homelab/ufw-gui.git
-cd ufw-gui
+docker run -d \
+  --name ufw-gui \
+  --network host \
+  --privileged \
+  -v /etc/ufw:/etc/ufw \
+  -v /var/run/fail2ban/fail2ban.sock:/var/run/fail2ban/fail2ban.sock \
+  -v /var/log:/var/log:ro \
+  webyhomelab/ufw-gui:latest
 ```
 
-### 2. Environment Configuration
-Generate a unique secret key for JWT authorization:
-```bash
-echo "UFW_GUI_SECRET_KEY=$(openssl rand -hex 32)" > .env
+Or via **docker-compose.yml**:
+
+```yaml
+services:
+  ufw-gui:
+    image: webyhomelab/ufw-gui:latest
+    container_name: ufw-gui
+    network_mode: host
+    privileged: true
+    volumes:
+      - /etc/ufw:/etc/ufw
+      - /var/run/fail2ban/fail2ban.sock:/var/run/fail2ban/fail2ban.sock
+      - /var/log:/var/log:ro
+      - ./data:/app/data
+    restart: always
 ```
 
-### 3. Start Services
-```bash
-docker compose up -d --build
-```
-
-The panel will be available at your server's address on port **80**. On the first login, the system will automatically prompt you to create a superadmin account.
-
----
-
-## 📸 Screenshots
-
-<p align="center">
-  <img src="ufw-gui-1.png" alt="UFW-GUI Dashboard" width="30%">
-  <img src="ufw-gui-2.png" alt="UFW-GUI Rules Management" width="30%">
-  <img src="ufw-gui-3.png" alt="UFW-GUI Settings" width="30%">
-</p>
+The panel will be available on port **8080**.
 
 ---
 
 ## 🏗️ Architecture
 
-The project is split into three isolated layers:
+The project is built as an **All-in-One Docker Image**:
 
-1.  **Frontend (React):** Fast and responsive SPA interface.
-2.  **Backend (FastAPI):** Asynchronous API with a high level of protection and validation.
-3.  **Reverse Proxy (Nginx):** Provides secure proxying and static file serving.
-
----
-
-## 📜 Branches & Versions
-
-*   `main` — **Docker Edition**. Recommended for servers with Docker infrastructure.
-*   `classic` — **Bare Metal**. Direct OS deployment via Systemd (no containers).
+1.  **Frontend (React):** Fast SPA interface built and embedded into the backend.
+2.  **Backend (FastAPI):** Asynchronous API serving both requests and static files.
+3.  **OS Integration:** Direct interaction with `ufw` and `fail2ban` via host networking.
 
 ---
 
 ## 🤝 Support & Development
 
-<p align="center">
-  <img src="https://img.shields.io/github/last-commit/weby-homelab/ufw-gui" alt="GitHub last commit">
-  <img src="https://img.shields.io/github/license/weby-homelab/ufw-gui" alt="License">
-</p>
-
-Developed with ❤️ by the **Weby Homelab** team for the Linux community.
+Developed with ❤️ by the **Weby Homelab** team.
