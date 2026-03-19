@@ -1,6 +1,8 @@
 from fastapi import FastAPI, HTTPException, Body, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from datetime import datetime, timedelta
@@ -19,10 +21,25 @@ CONFIG_FILE = f"{DATA_DIR}/config.json"
 UFW_BACKUP_DIR = f"{DATA_DIR}/ufw_backups"
 DB_FILE = f"{DATA_DIR}/stats.db"
 
-app = FastAPI(title="UFW-GUI API", version="1.2.0")
+app = FastAPI(title="UFW-GUI API", version="1.3.0")
 rollback_task = None
 
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"],)
+
+# Serve Frontend Static Files
+if os.path.exists("/app/static"):
+    # Vite builds static assets into /assets/ folder
+    if os.path.exists("/app/static/assets"):
+        app.mount("/assets", StaticFiles(directory="/app/static/assets"), name="assets")
+    
+    @app.get("/{full_path:path}")
+    async def serve_frontend(full_path: str):
+        if full_path.startswith("api/"):
+            raise HTTPException(status_code=404)
+        file_path = os.path.join("/app/static", full_path)
+        if os.path.isfile(file_path):
+            return FileResponse(file_path)
+        return FileResponse("/app/static/index.html")
 
 # --- Validation Helpers ---
 def is_valid_ip(ip: str) -> bool:
