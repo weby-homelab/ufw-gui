@@ -14,6 +14,14 @@
   <img src="https://img.shields.io/badge/Branch-Main_(Docker)-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Branch Main">
 </p>
 
+<p align="center">
+  <img src="https://github.com/weby-homelab/ufw-gui/blob/main/ufw-gui-1.png?raw=true" alt="Dashboard Preview" width="800">
+</p>
+<p align="center">
+  <img src="https://github.com/weby-homelab/ufw-gui/blob/main/ufw-gui-2.png?raw=true" alt="Rules Preview" width="400">
+  <img src="https://github.com/weby-homelab/ufw-gui/blob/main/ufw-gui-3.png?raw=true" alt="Fail2Ban Preview" width="400">
+</p>
+
 # UFW-GUI: Docker Edition
 
 **UFW-GUI** is a modern, lightweight, and secure web interface for managing the UFW firewall on Debian and Ubuntu distributions. This project is built for system administrators who value visual control, security, and deployment speed.
