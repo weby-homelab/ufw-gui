@@ -1,4 +1,5 @@
-# 🛡️ UFW-GUI v1.4.0 — СВІТЛО⚡️ БЕЗПЕКА (Security Hardening Release)
+# 🛡️ UFW-GUI v1.4.0 — МЕРЕЖЕВА БЕЗПЕКА (Security Hardening Release)
+
 
 [![Latest Release](https://img.shields.io/github/v/release/weby-homelab/ufw-gui)](https://github.com/weby-homelab/ufw-gui/releases/latest)
 [![Docker Pulls](https://img.shields.io/docker/pulls/webyhomelab/ufw-gui-backend)](https://hub.docker.com/r/webyhomelab/ufw-gui-backend)
