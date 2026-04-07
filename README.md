@@ -1,49 +1,39 @@
-# 🛡️ UFW-GUI v1.4.0 — NETWORK SECURITY (Bare Metal Edition)
+<p align="center">
+  <a href="README_ENG.md">
+    <img src="https://img.shields.io/badge/🇬🇧_English-00D4FF?style=for-the-badge&logo=readme&logoColor=white" alt="English README">
+  </a>
+  <a href="README.md">
+    <img src="https://img.shields.io/badge/🇺🇦_Українська-FF4D00?style=for-the-badge&logo=readme&logoColor=white" alt="Українська версія">
+  </a>
+</p>
+
+<br>
+
+# 🛡️ UFW-GUI v1.4.0 — МЕРЕЖЕВА БЕЗПЕКА (Bare Metal Edition)
 
 [![Latest Release](https://img.shields.io/github/v/release/weby-homelab/ufw-gui)](https://github.com/weby-homelab/ufw-gui/releases/latest)
 
-A modern, secure web interface for managing the **UFW** firewall on **Ubuntu/Debian** servers (Direct System Installation).
+Веб-інтерфейс для керування **UFW** безпосередньо на вашій системі.
 
-## 🛡️ Security Hardening (v1.4.0)
-- **Zero-Fallback Secrets:** App requires a defined `UFW_GUI_SECRET_KEY` to start.
-- **Strict CORS:** Enforced origin restriction via `ALLOWED_ORIGINS`.
-- **Input Sanitization:** Robust validation of IP, ports, and protocols.
+## 🛡️ Оновлення безпеки (v1.4.0)
+- **Zero-Fallback Secrets:** Додаток вимагає встановленого `UFW_GUI_SECRET_KEY`.
+- **Strict CORS:** Обмеження доступу через `ALLOWED_ORIGINS`.
+- **Input Sanitization:** Жорстка валідація даних.
 
-## 🛠️ Bare Metal Installation (Classic Mode)
+## 🛠️ Встановлення (Bare Metal)
 
-1. **Install Dependencies:**
+1. **Встановіть залежності:**
    ```bash
    sudo apt update && sudo apt install ufw fail2ban python3-pip
    ```
 
-2. **Clone & Setup Environment:**
+2. **Налаштуйте Python:**
    ```bash
    git clone https://github.com/weby-homelab/ufw-gui.git
    cd ufw-gui/backend
    pip install -r requirements.txt
    ```
 
-3. **Configure Systemd Service:**
-   Create `/etc/systemd/system/ufw-gui.service`:
-   ```ini
-   [Service]
-   Environment="UFW_GUI_SECRET_KEY=your_generated_secret"
-   Environment="ALLOWED_ORIGINS=http://localhost:3000"
-   ExecStart=/usr/bin/python3 /path/to/backend/main.py
-   ```
-
----
-
-# 🇺🇦 УКРАЇНСЬКА ВЕРСІЯ (BARE METAL)
-
-## 🛡️ UFW-GUI v1.4.0 — МЕРЕЖЕВА БЕЗПЕКА
-
-Веб-інтерфейс для керування **UFW** безпосередньо на вашій системі.
-
-## 🛠️ Встановлення (Bare Metal)
-
-1. **Встановіть системні пакунки:** `ufw`, `fail2ban`, `python3-pip`.
-2. **Налаштуйте Python:** Встановіть бібліотеки з `requirements.txt`.
 3. **Запустіть як сервіс:** Використовуйте `systemd` з обов’язковим вказанням `UFW_GUI_SECRET_KEY`.
 
 ---
