@@ -1,4 +1,4 @@
-# UFW-GUI v1.4.0 — СВІТЛО⚡️ БЕЗПЕКА (Security Hardening Release)
+# 🛡️ UFW-GUI v1.4.0 — СВІТЛО⚡️ БЕЗПЕКА (Security Hardening Release)
 
 [![Latest Release](https://img.shields.io/github/v/release/weby-homelab/ufw-gui)](https://github.com/weby-homelab/ufw-gui/releases/latest)
 [![Docker Pulls](https://img.shields.io/docker/pulls/webyhomelab/ufw-gui-backend)](https://hub.docker.com/r/webyhomelab/ufw-gui-backend)
@@ -7,56 +7,68 @@
 
 ## 🛡️ Що нового у v1.4.0 (Security Hardening)
 - **Zero-Fallback Secrets:** Додаток більше не запускається без встановленого `UFW_GUI_SECRET_KEY`. Жодних дефолтних ключів у коді.
-- **Strict CORS:** Повне обмеження доступу з невідомих доменів.
+- **Strict CORS:** Повне обмеження доступу з невідомих доменів через `ALLOWED_ORIGINS`.
 - **Input Sanitization:** Жорстка валідація IP, портів та протоколів для захисту від ін'єкцій.
 - **Time Machine:** Автоматичні снапшоти конфігурації перед будь-якою зміною правил.
-- **Fail2Ban Integration:** Перегляд та керування активними банами в реальному часі.
+- **Fail2Ban Integration:** Керування активними банами в реальному часі.
 
 ## 🚀 Гілки та Режими
 
 | Гілка | Режим | Опис |
 | :--- | :--- | :--- |
-| `main` | **Docker** | Оптимізовано для контейнерів (Docker Compose). |
+| `main` | **Docker** | Оптимізовано для контейнерів (Docker Compose). **Рекомендовано.** |
 | `classic` | **Bare Metal** | Пряма інсталяція на систему через `systemd`. |
 
-## 📦 Встановлення (Docker - Гілка `main`)
+## 📦 Встановлення та Налаштування Безпеки
 
-1. **Клонуйте репозиторій:**
-   ```bash
-   git clone https://github.com/weby-homelab/ufw-gui.git
-   cd ufw-gui
-   ```
+### 1. Гілка `main` (Docker) — Рекомендовано
 
-2. **Налаштуйте секрети:**
-   ```bash
-   cp backend/.env.example backend/.env
-   # ОБОВ'ЯЗКОВО змініть SECRET_KEY
-   nano backend/.env
-   ```
+**Крок 1: Клонування та підготовка**
+```bash
+git clone https://github.com/weby-homelab/ufw-gui.git
+cd ufw-gui
+cp backend/.env.example backend/.env
+```
 
-3. **Запустіть:**
-   ```bash
-   docker compose up -d
-   ```
+**Крок 2: Генерація унікального секретного ключа**
+Для максимальної безпеки згенеруйте випадковий ключ (мінімум 32 символи):
+```bash
+openssl rand -hex 32
+```
 
-## 🛠️ Встановлення (Bare Metal - Гілка `classic`)
+**Крок 3: Редагування `.env`**
+Відкрийте `backend/.env` та вставте згенерований ключ:
+```env
+UFW_GUI_SECRET_KEY=ваш_згенерований_ключ
+ALLOWED_ORIGINS=https://vash-domen.com,http://localhost:5173
+```
+> **УВАГА:** Якщо `UFW_GUI_SECRET_KEY` не буде встановлено, контейнер видасть помилку `ValueError` і не запуститься. Це захищає вас від використання дефолтних паролів.
 
-1. **Встановіть залежності:**
-   ```bash
-   sudo apt update && sudo apt install ufw fail2ban python3-pip
-   ```
+**Крок 4: Запуск**
+```bash
+docker compose up -d
+```
 
-2. **Налаштуйте Python середовище:**
-   ```bash
-   cd backend
-   pip install -r requirements.txt
-   ```
+### 2. Гілка `classic` (Bare Metal)
 
-3. **Запустіть сервіс:**
-   ```bash
-   export UFW_GUI_SECRET_KEY="your-super-long-secret"
-   uvicorn main:app --host 0.0.0.0 --port 8000
-   ```
+**Крок 1: Встановлення залежностей**
+```bash
+sudo apt update && sudo apt install ufw fail2ban python3-pip
+cd backend
+pip install -r requirements.txt
+```
+
+**Крок 2: Налаштування змінних оточення (Systemd)**
+Створіть файл сервісу `/etc/systemd/system/ufw-gui.service` та додайте секцію `[Service]`:
+```ini
+[Service]
+Environment="UFW_GUI_SECRET_KEY=ваш_довгий_секретний_ключ"
+Environment="ALLOWED_ORIGINS=http://localhost:3000"
+ExecStart=/usr/bin/python3 /path/to/backend/main.py
+```
+
+## 🔐 Чому це важливо?
+Версія **v1.4.0** впроваджує принцип **Secure by Design**. Ми видалили всі "запасні" ключі з коду. Тепер кожен адміністратор **зобов'язаний** створити власний унікальний секрет. Це унеможливлює масові атаки на дефолтні конфігурації.
 
 ---
 **✦ 2026 Weby Homelab ✦**
