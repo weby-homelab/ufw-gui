@@ -37,4 +37,7 @@
 4. **Запустіть:** `docker compose up -d`
 
 ---
-**✦ 2026 Weby Homelab ✦**
+<p align="center">
+  Made with ❤️ in Kyiv under air raid sirens and blackouts<br>
+  <strong>© 2026 Weby Homelab</strong>
+</p>
