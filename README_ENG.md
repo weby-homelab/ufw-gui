@@ -37,4 +37,7 @@ A modern, secure web interface for managing the **UFW** firewall via **Docker**.
 4. **Deploy:** `docker compose up -d`
 
 ---
-**✦ 2026 Weby Homelab ✦**
+<p align="center">
+  Made with ❤️ in Kyiv under air raid sirens and blackouts<br>
+  <strong>© 2026 Weby Homelab</strong>
+</p>
