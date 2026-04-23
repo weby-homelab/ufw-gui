@@ -83,13 +83,18 @@ def send_tg_alert(text):
 
 def run_cmd(cmd):
     try:
+        # cmd is a list, which is safer than shell=True
         result = subprocess.run(cmd, capture_output=True, text=True, check=True)
         return result.stdout.strip()
-    except subprocess.CalledProcessError as e: raise HTTPException(status_code=500, detail=e.stderr)
+    except subprocess.CalledProcessError as e:
+        # Sanitize error to avoid information exposure
+        raise HTTPException(status_code=500, detail="Command execution failed. Check system logs.")
 
 def load_users():
     if not os.path.exists(USER_DATA_FILE): return {}
-    with open(USER_DATA_FILE, "r") as f: return json.load(f)
+    try:
+        with open(USER_DATA_FILE, "r") as f: return json.load(f)
+    except: return {}
 
 def save_users(users):
     os.makedirs(DATA_DIR, exist_ok=True)
@@ -98,7 +103,9 @@ def save_users(users):
 def create_snapshot(label="auto"):
     os.makedirs(UFW_BACKUP_DIR, exist_ok=True)
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-    snap_path = f"{UFW_BACKUP_DIR}/snap_{ts}_{label}"
+    # Strictly allow only alphanumeric and underscores for label
+    safe_label = "".join([c if c.isalnum() else "_" for c in label])
+    snap_path = os.path.join(UFW_BACKUP_DIR, f"snap_{ts}_{safe_label}")
     if os.path.exists("/etc/ufw"):
         shutil.copytree("/etc/ufw", snap_path, dirs_exist_ok=True)
     return ts
@@ -108,7 +115,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username = payload.get("sub")
         users = load_users()
-        if username not in users: raise HTTPException(status_code=401)
+        if not username or username not in users: raise HTTPException(status_code=401)
         return {"username": username, "role": users[username].get("role", "admin")}
     except JWTError: raise HTTPException(status_code=401)
 
@@ -120,6 +127,9 @@ async def is_setup_needed(): return {"setup_needed": len(load_users()) == 0}
 async def setup_admin(username: str = Body(...), password: str = Body(...)):
     users = load_users()
     if len(users) > 0: raise HTTPException(status_code=400)
+    # Basic validation for username
+    if not re.match(r"^[a-zA-Z0-9_\-]+$", username):
+        raise HTTPException(status_code=400, detail="Invalid username format")
     users[username] = {"password": pwd_context.hash(password), "role": "superadmin"}
     save_users(users)
     log_action(username, "SETUP", "Superadmin created")
@@ -168,8 +178,9 @@ async def get_rules(u=Depends(get_current_user)):
                     "raw": line
                 })
         return {"rules": rules}
-    except Exception as e:
-        return {"rules": [], "error": str(e)}
+    except Exception:
+        # Avoid leaking raw error message
+        return {"rules": [], "error": "Failed to fetch rules. Check system logs."}
 
 @app.post("/api/rule")
 async def add_rule(action: str = Body(...), port: str = Body(""), proto: str = Body(""), ip: str = Body(""), u=Depends(get_current_user)):
@@ -188,8 +199,9 @@ async def add_rule(action: str = Body(...), port: str = Body(""), proto: str = B
             if proto:
                 cmd.extend(["proto", proto])
     else:
-        target = port if not proto else f"{port}/{proto}"
-        cmd.append(target)
+        if port:
+            target = port if not proto else f"{port}/{proto}"
+            cmd.append(target)
     
     res = run_cmd(cmd)
     log_action(u["username"], "ADD_RULE", f"Action: {action}, Target: {port}, IP: {ip}")
@@ -214,45 +226,57 @@ async def ban_ip(ip: str = Body(..., embed=True), u=Depends(get_current_user)):
 # === Logs & Stats ===
 @app.get("/api/logs")
 async def get_ufw_logs(u=Depends(get_current_user)):
+    lines = []
     try:
-        with open("/var/log/ufw.log", "r") as f: lines = f.readlines()
-    except:
-        try:
+        # Standard ufw log location
+        if os.path.exists("/var/log/ufw.log"):
+            with open("/var/log/ufw.log", "r") as f: lines = f.readlines()
+        elif os.path.exists("/var/log/syslog"):
             with open("/var/log/syslog", "r") as f: lines = f.readlines()
-        except:
-            return {"logs": []}
+    except:
+        return {"logs": []}
 
     parsed = []
-    conn = sqlite3.connect(DB_FILE)
-    for line in lines[-500:]:
-        if "[UFW BLOCK]" in line or "[UFW REJECT]" in line:
-            src = re.search(r"SRC=([\d\.]+)", line)
-            proto = re.search(r"PROTO=(\w+)", line)
-            dpt = re.search(r"DPT=(\d+)", line)
-            if src: 
-                item = {"time": line[:15], "src": src.group(1), "proto": proto.group(1) if proto else "?", "port": dpt.group(1) if dpt else "?"}
-                parsed.append(item)
-                conn.execute("INSERT OR IGNORE INTO drops (ts, src, proto, port) VALUES (?, ?, ?, ?)", (datetime.now().isoformat(), item["src"], item["proto"], item["port"]))
-    conn.commit()
-    conn.close()
+    try:
+        conn = sqlite3.connect(DB_FILE)
+        for line in lines[-500:]:
+            if "[UFW BLOCK]" in line or "[UFW REJECT]" in line:
+                src = re.search(r"SRC=([\d\.]+)", line)
+                proto = re.search(r"PROTO=(\w+)", line)
+                dpt = re.search(r"DPT=(\d+)", line)
+                if src: 
+                    item = {"time": line[:15], "src": src.group(1), "proto": proto.group(1) if proto else "?", "port": dpt.group(1) if dpt else "?"}
+                    parsed.append(item)
+                    conn.execute("INSERT OR IGNORE INTO drops (ts, src, proto, port) VALUES (?, ?, ?, ?)", (datetime.now().isoformat(), item["src"], item["proto"], item["port"]))
+        conn.commit()
+        conn.close()
+    except: pass
     return {"logs": parsed[::-1][:40]}
 
 @app.get("/api/stats")
 async def get_stats(u=Depends(get_current_user)):
-    conn = sqlite3.connect(DB_FILE)
-    query = "SELECT strftime('%H:', ts) || (CAST(strftime('%M', ts) AS INTEGER) / 10) || '0' as interval, count(*) FROM drops WHERE ts > datetime('now', '-24 hours') GROUP BY date(ts), strftime('%H', ts), (CAST(strftime('%M', ts) AS INTEGER) / 10) ORDER BY date(ts), strftime('%H', ts), (CAST(strftime('%M', ts) AS INTEGER) / 10)"
-    res = conn.execute(query).fetchall()
-    conn.close()
-    return {"hourly": [{"hour": r[0], "count": r[1]} for r in res]}
+    try:
+        conn = sqlite3.connect(DB_FILE)
+        query = "SELECT strftime('%H:', ts) || (CAST(strftime('%M', ts) AS INTEGER) / 10) || '0' as interval, count(*) FROM drops WHERE ts > datetime('now', '-24 hours') GROUP BY interval ORDER BY interval ASC"
+        res = conn.execute(query).fetchall()
+        conn.close()
+        return {"hourly": [{"hour": r[0], "count": r[1]} for r in res]}
+    except: return {"hourly": []}
 
 # === Fail2Ban ===
 @app.get("/api/fail2ban/status")
 async def get_f2b(u=Depends(get_current_user)):
     try:
-        jails = re.search(r"Jail list:\s+(.*)", run_cmd(["fail2ban-client", "status"])).group(1).split(", ")
+        status_out = run_cmd(["fail2ban-client", "status"])
+        jails_match = re.search(r"Jail list:\s+(.*)", status_out)
+        if not jails_match: return {"banned": []}
+        jails = jails_match.group(1).split(", ")
         banned = []
         for j in jails:
-            ips = run_cmd(["fail2ban-client", "status", j]).split("Banned IP list:")[-1].strip().split()
+            # Validate jail name before passing to run_cmd
+            if not re.match(r"^[a-zA-Z0-9_\-]+$", j): continue
+            jail_status = run_cmd(["fail2ban-client", "status", j])
+            ips = jail_status.split("Banned IP list:")[-1].strip().split()
             for ip in ips: banned.append({"ip": ip, "jail": j})
         return {"banned": banned}
     except: return {"banned": []}
@@ -260,6 +284,7 @@ async def get_f2b(u=Depends(get_current_user)):
 @app.post("/api/fail2ban/unban")
 async def unban(ip: str=Body(...), jail: str=Body(...), u=Depends(get_current_user)):
     if not is_valid_ip(ip): raise HTTPException(status_code=400, detail="Invalid IP")
+    if not re.match(r"^[a-zA-Z0-9_\-]+$", jail): raise HTTPException(status_code=400, detail="Invalid Jail")
     res = run_cmd(["fail2ban-client", "set", jail, "unbanip", ip])
     log_action(u["username"], "UNBAN", f"IP: {ip}, Jail: {jail}")
     return {"result": res}
@@ -267,10 +292,12 @@ async def unban(ip: str=Body(...), jail: str=Body(...), u=Depends(get_current_us
 # === Admin & Settings ===
 @app.get("/api/audit-logs")
 async def get_audit(u=Depends(get_current_user)):
-    conn = sqlite3.connect(DB_FILE)
-    res = conn.execute("SELECT ts, username, action, details FROM audit_logs ORDER BY id DESC LIMIT 50").fetchall()
-    conn.close()
-    return {"logs": [{"ts": r[0], "user": r[1], "action": r[2], "details": r[3]} for r in res]}
+    try:
+        conn = sqlite3.connect(DB_FILE)
+        res = conn.execute("SELECT ts, username, action, details FROM audit_logs ORDER BY id DESC LIMIT 50").fetchall()
+        conn.close()
+        return {"logs": [{"ts": r[0], "user": r[1], "action": r[2], "details": r[3]} for r in res]}
+    except: return {"logs": []}
 
 @app.get("/api/users")
 async def get_users(u=Depends(get_current_user)):
@@ -281,6 +308,7 @@ async def get_users(u=Depends(get_current_user)):
 @app.post("/api/users")
 async def add_user(username: str=Body(...), password: str=Body(...), u=Depends(get_current_user)):
     if u["role"] != "superadmin": raise HTTPException(status_code=403)
+    if not re.match(r"^[a-zA-Z0-9_\-]+$", username): raise HTTPException(status_code=400, detail="Invalid username")
     users = load_users()
     users[username] = {"password": pwd_context.hash(password), "role": "admin"}
     save_users(users)
@@ -291,33 +319,58 @@ async def add_user(username: str=Body(...), password: str=Body(...), u=Depends(g
 async def del_user(t: str, u=Depends(get_current_user)):
     if u["role"] != "superadmin": raise HTTPException(status_code=403)
     users = load_users()
-    del users[t]
-    save_users(users)
-    log_action(u["username"], "DEL_USER", t)
-    return {"status": "success"}
+    if t in users:
+        del users[t]
+        save_users(users)
+        log_action(u["username"], "DEL_USER", t)
+        return {"status": "success"}
+    raise HTTPException(status_code=404, detail="User not found")
 
 @app.get("/api/settings")
 async def get_set(u=Depends(get_current_user)):
-    return json.load(open(CONFIG_FILE, "r")) if os.path.exists(CONFIG_FILE) else {}
+    try:
+        if os.path.exists(CONFIG_FILE):
+            with open(CONFIG_FILE, "r") as f: return json.load(f)
+    except: pass
+    return {}
 
 @app.post("/api/settings")
 async def save_set(data: dict=Body(...), u=Depends(get_current_user)):
     if u["role"] != "superadmin": raise HTTPException(status_code=403)
-    with open(CONFIG_FILE, "w") as f: json.dump(data, f)
-    return {"status": "success"}
+    try:
+        os.makedirs(DATA_DIR, exist_ok=True)
+        with open(CONFIG_FILE, "w") as f: json.dump(data, f)
+        return {"status": "success"}
+    except: raise HTTPException(status_code=500, detail="Failed to save settings")
 
 @app.get("/api/snapshots/all")
 async def get_snaps(u=Depends(get_current_user)):
-    return {"snapshots": sorted(os.listdir(UFW_BACKUP_DIR), reverse=True)} if os.path.exists(UFW_BACKUP_DIR) else {"snapshots": []}
+    if os.path.exists(UFW_BACKUP_DIR):
+        return {"snapshots": sorted(os.listdir(UFW_BACKUP_DIR), reverse=True)}
+    return {"snapshots": []}
 
 @app.post("/api/snapshots/restore/{n}")
 async def restore_sn(n: str, u=Depends(get_current_user)):
-    if ".." in n or "/" in n: raise HTTPException(status_code=400)
-    snap_path = os.path.join(UFW_BACKUP_DIR, n)
-    shutil.copytree(snap_path, "/etc/ufw", dirs_exist_ok=True)
-    run_cmd(["ufw", "reload"])
-    log_action(u["username"], "RESTORE", n)
-    return {"status": "success"}
+    # Secure path handling to prevent traversal
+    safe_n = os.path.basename(n)
+    if not safe_n or safe_n.startswith("."): raise HTTPException(status_code=400, detail="Invalid snapshot name")
+    
+    snap_path = os.path.realpath(os.path.join(UFW_BACKUP_DIR, safe_n))
+    base_dir = os.path.realpath(UFW_BACKUP_DIR)
+    
+    if not snap_path.startswith(base_dir + os.sep):
+        raise HTTPException(status_code=400, detail="Path traversal detected")
+        
+    if not os.path.exists(snap_path):
+        raise HTTPException(status_code=404, detail="Snapshot not found")
+        
+    try:
+        shutil.copytree(snap_path, "/etc/ufw", dirs_exist_ok=True)
+        run_cmd(["ufw", "reload"])
+        log_action(u["username"], "RESTORE", safe_n)
+        return {"status": "success"}
+    except Exception:
+        raise HTTPException(status_code=500, detail="Failed to restore snapshot")
 
 # === Test Rule / Rollback ===
 async def perform_rollback():

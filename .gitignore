@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.env
+
+# Node
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# Project Data
+data/
+backend/data/
+ufw_backups/
+*.db
+
+# OS
+.DS_Store
+Thumbs.db
