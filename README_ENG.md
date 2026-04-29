@@ -38,4 +38,9 @@ A modern, secure web interface for managing the **UFW** firewall on **Ubuntu/Deb
    Create service file with `UFW_GUI_SECRET_KEY` and `ALLOWED_ORIGINS` env variables.
 
 ---
-**✦ 2026 Weby Homelab ✦**
+
+<br>
+<p align="center">
+  Built in Ukraine under air raid sirens &amp; blackouts ⚡<br>
+  &copy; 2026 Weby Homelab
+</p>

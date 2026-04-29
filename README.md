@@ -37,4 +37,9 @@
 3. **Запустіть як сервіс:** Використовуйте `systemd` з обов’язковим вказанням `UFW_GUI_SECRET_KEY`.
 
 ---
-**✦ 2026 Weby Homelab ✦**
+
+<br>
+<p align="center">
+  Built in Ukraine under air raid sirens &amp; blackouts ⚡<br>
+  &copy; 2026 Weby Homelab
+</p>
