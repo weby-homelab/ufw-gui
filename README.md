@@ -9,19 +9,49 @@
 
 <br>
 
-# 🛡️ UFW-GUI v1.4.0 — МЕРЕЖЕВА БЕЗПЕКА (Docker Edition)
+<h1 align="center">🛡️ UFW-GUI v1.4.0 — МЕРЕЖЕВА БЕЗПЕКА (Docker Edition)</h1>
 
-[![Latest Release](https://img.shields.io/github/v/release/weby-homelab/ufw-gui)](https://github.com/weby-homelab/ufw-gui/releases/latest)
-[![Docker Pulls](https://img.shields.io/docker/pulls/webyhomelab/ufw-gui-backend)](https://hub.docker.com/r/webyhomelab/ufw-gui-backend)
+<p align="center">
+  <a href="https://github.com/weby-homelab/ufw-gui/releases/latest"><img src="https://img.shields.io/github/v/release/weby-homelab/ufw-gui" alt="Latest Release"></a>
+  <a href="https://hub.docker.com/r/webyhomelab/ufw-gui-backend"><img src="https://img.shields.io/docker/pulls/webyhomelab/ufw-gui-backend" alt="Docker Pulls"></a>
+</p>
 
-Сучасний веб-інтерфейс для керування **UFW** через **Docker**.
+<p align="center">
+  <strong>Сучасний, інтуїтивно зрозумілий веб-інтерфейс для керування брандмауером Uncomplicated Firewall (UFW) через Docker.</strong>
+</p>
+
+## ✨ Огляд
+
+**UFW-GUI** — це елегантне та безпечне рішення для моніторингу та управління правилами фаєрвола на ваших серверах. Завдяки сучасному дизайну та продуманому функціоналу, контроль мережевої безпеки стає простим як ніколи. 
+
+### 📸 Інтерфейс додатку
+
+<p align="center">
+  <img src="ufw-gui-1.png" width="80%" alt="UFW-GUI Головна панель" style="border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+  <br>
+  <em>Інформаційна панель та статус системи</em>
+</p>
+
+<p align="center">
+  <img src="ufw-gui-2.png" width="80%" alt="UFW-GUI Керування правилами" style="border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+  <br>
+  <em>Зручне управління правилами та профілями</em>
+</p>
+
+## 🚀 Основні можливості
+
+- **💡 Сучасний UI/UX:** Інтуїтивний інтерфейс.
+- **📊 Візуалізація статусу:** Миттєвий перегляд стану UFW та активних з'єднань.
+- **🛡️ Легке керування правилами:** Додавання, видалення та редагування правил в один клік.
+- **🔒 Посилена безпека:** Захист секретним ключем, строгий CORS та санітизація вводу.
+- **🐳 Docker Edition:** Швидке та ізольоване розгортання через контейнери.
 
 ## 🛡️ Оновлення безпеки (v1.4.0)
 - **Zero-Fallback Secrets:** Додаток більше не запускається без встановленого `UFW_GUI_SECRET_KEY`.
 - **Strict CORS:** Повне обмеження доступу з невідомих доменів.
 - **Input Sanitization:** Жорстка валідація для захисту від ін’єкцій.
 
-## 📦 Встановлення (Docker)
+## 📦 Встановлення (Docker Edition)
 
 1. **Клонуйте та налаштуйте:**
    ```bash

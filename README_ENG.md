@@ -9,12 +9,42 @@
 
 <br>
 
-# 🛡️ UFW-GUI v1.4.0 — NETWORK SECURITY (Docker Edition)
+<h1 align="center">🛡️ UFW-GUI v1.4.0 — NETWORK SECURITY (Docker Edition)</h1>
 
-[![Latest Release](https://img.shields.io/github/v/release/weby-homelab/ufw-gui)](https://github.com/weby-homelab/ufw-gui/releases/latest)
-[![Docker Pulls](https://img.shields.io/docker/pulls/webyhomelab/ufw-gui-backend)](https://hub.docker.com/r/webyhomelab/ufw-gui-backend)
+<p align="center">
+  <a href="https://github.com/weby-homelab/ufw-gui/releases/latest"><img src="https://img.shields.io/github/v/release/weby-homelab/ufw-gui" alt="Latest Release"></a>
+  <a href="https://hub.docker.com/r/webyhomelab/ufw-gui-backend"><img src="https://img.shields.io/docker/pulls/webyhomelab/ufw-gui-backend" alt="Docker Pulls"></a>
+</p>
 
-A modern, secure web interface for managing the **UFW** firewall via **Docker**.
+<p align="center">
+  <strong>A modern, secure web interface for managing the Uncomplicated Firewall (UFW) via Docker.</strong>
+</p>
+
+## ✨ Overview
+
+**UFW-GUI** is an elegant and secure solution for monitoring and managing firewall rules on your servers. With its modern design and thoughtful functionality, network security control has never been easier.
+
+### 📸 App Interface
+
+<p align="center">
+  <img src="ufw-gui-1.png" width="80%" alt="UFW-GUI Main Dashboard" style="border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+  <br>
+  <em>Dashboard and System Status</em>
+</p>
+
+<p align="center">
+  <img src="ufw-gui-2.png" width="80%" alt="UFW-GUI Rule Management" style="border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+  <br>
+  <em>Easy Rule Management and Profiles</em>
+</p>
+
+## 🚀 Key Features
+
+- **💡 Modern UI/UX:** Intuitive interface.
+- **📊 Status Visualization:** Instant overview of UFW state and active connections.
+- **🛡️ Easy Rule Management:** Add, delete, and edit rules in one click.
+- **🔒 Hardened Security:** Secret key protection, strict CORS, and input sanitization.
+- **🐳 Docker Edition:** Fast and isolated deployment via containers.
 
 ## 🛡️ Security Hardening (v1.4.0)
 - **Zero-Fallback Secrets:** App requires a defined `UFW_GUI_SECRET_KEY` to start.
