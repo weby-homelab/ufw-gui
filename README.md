@@ -9,24 +9,35 @@
 
 <br>
 
-# 🛡️ UFW-GUI (Bare Metal Edition)
-*Сучасне, швидке та естетичне керування мережевою безпекою Linux безпосередньо на вашому хості.*
+<h1 align="center">🛡️ UFW-GUI (Bare Metal Edition)</h1>
 
-[![Latest Release](https://img.shields.io/github/v/release/weby-homelab/ufw-gui)](https://github.com/weby-homelab/ufw-gui/releases/latest)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![System](https://img.shields.io/badge/system-Debian_|_Ubuntu_|_AlmaLinux-red.svg)]()
+<p align="center">
+  <a href="https://github.com/weby-homelab/ufw-gui/releases/latest"><img src="https://img.shields.io/github/v/release/weby-homelab/ufw-gui" alt="Latest Release"></a>
+  <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License">
+  <img src="https://img.shields.io/badge/system-Debian_|_Ubuntu_|_AlmaLinux-red.svg" alt="System">
+</p>
+
+<p align="center">
+  <strong>Сучасне, швидке та естетичне керування мережевою безпекою Linux безпосередньо на вашому хості.</strong>
+</p>
+
+## ✨ Огляд
 
 **UFW-GUI** — це професійна веб-панель для керування `UFW` та `Fail2Ban`. Вона перетворює складні консольні команди на інтуїтивно зрозумілий дашборд із аналітикою в реальному часі. Ідеально підходить для серверів, де використання Docker є небажаним або неможливим.
 
----
+### 📸 Інтерфейс додатку
 
 <p align="center">
-  <img src="ufw-gui-1.png" alt="UFW-GUI Dashboard" width="800">
-  <br><br>
-  <img src="ufw-gui-2.png" alt="UFW-GUI Analytics" width="800">
+  <img src="ufw-gui-1.png" width="80%" alt="UFW-GUI Головна панель" style="border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+  <br>
+  <em>Аналітика та статус системи безпеки</em>
 </p>
 
----
+<p align="center">
+  <img src="ufw-gui-2.png" width="80%" alt="UFW-GUI Керування правилами" style="border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+  <br>
+  <em>Інтуїтивне управління правилами та Fail2Ban</em>
+</p>
 
 ## 🚀 Основні можливості
 
@@ -106,6 +117,7 @@ graph TD
 - **Доступ:** Права `root` (або `sudo`) для керування системними службами.
 
 ---
+
 <br>
 <p align="center">
   Built in Ukraine under air raid sirens &amp; blackouts ⚡<br>
