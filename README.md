@@ -9,35 +9,103 @@
 
 <br>
 
-# 🛡️ UFW-GUI v1.4.0 — МЕРЕЖЕВА БЕЗПЕКА (Bare Metal Edition)
+# 🛡️ UFW-GUI (Bare Metal Edition)
+*Сучасне, швидке та естетичне керування мережевою безпекою Linux безпосередньо на вашому хості.*
 
 [![Latest Release](https://img.shields.io/github/v/release/weby-homelab/ufw-gui)](https://github.com/weby-homelab/ufw-gui/releases/latest)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![System](https://img.shields.io/badge/system-Debian_|_Ubuntu_|_AlmaLinux-red.svg)]()
 
-Веб-інтерфейс для керування **UFW** безпосередньо на вашій системі.
-
-## 🛡️ Оновлення безпеки (v1.4.0)
-- **Zero-Fallback Secrets:** Додаток вимагає встановленого `UFW_GUI_SECRET_KEY`.
-- **Strict CORS:** Обмеження доступу через `ALLOWED_ORIGINS`.
-- **Input Sanitization:** Жорстка валідація даних.
-
-## 🛠️ Встановлення (Bare Metal)
-
-1. **Встановіть залежності:**
-   ```bash
-   sudo apt update && sudo apt install ufw fail2ban python3-pip
-   ```
-
-2. **Налаштуйте Python:**
-   ```bash
-   git clone https://github.com/weby-homelab/ufw-gui.git
-   cd ufw-gui/backend
-   pip install -r requirements.txt
-   ```
-
-3. **Запустіть як сервіс:** Використовуйте `systemd` з обов’язковим вказанням `UFW_GUI_SECRET_KEY`.
+**UFW-GUI** — це професійна веб-панель для керування `UFW` та `Fail2Ban`. Вона перетворює складні консольні команди на інтуїтивно зрозумілий дашборд із аналітикою в реальному часі. Ідеально підходить для серверів, де використання Docker є небажаним або неможливим.
 
 ---
 
+<p align="center">
+  <img src="ufw-gui-1.png" alt="UFW-GUI Dashboard" width="800">
+  <br><br>
+  <img src="ufw-gui-2.png" alt="UFW-GUI Analytics" width="800">
+</p>
+
+---
+
+## 🚀 Основні можливості
+
+### 🛠 Керування правилами
+- **Quick Rules:** Швидке додавання дозволів або заборон для портів та IP.
+- **Rule Management:** Перегляд та видалення активних правил через браузер.
+- **Test Mode:** Безпечне тестування правил на 60 секунд з автоматичним відкатом.
+
+### 🔍 Threat Intelligence & Аналітика
+- **Live Drops:** Відстежуйте відхилені пакети у реальному часі.
+- **Visual Analytics:** Графіки активності атак за останні 24 години.
+- **Fail2Ban Control:** Повний контроль над активними банами та статусом джейлів.
+
+### 🛡 Безпека та Надійність
+- **Auto-Snapshots:** Система автоматично робить бекап перед кожною зміною.
+- **Audit Logs:** Детальний журнал дій для командної роботи.
+- **Telegram Alerts:** Миттєві сповіщення про зміну правил у ваш Telegram.
+
+---
+
+## 🏗️ Архітектура системи
+
+```mermaid
+graph TD
+    User((Адміністратор)) -->|HTTPS| Nginx[Nginx Service]
+    Nginx -->|Static| UI[Frontend: React Build]
+    Nginx -->|Proxy| API[Backend: FastAPI]
+    
+    subgraph "Host OS"
+        Nginx
+        UI
+        API
+        UFW[UFW Engine]
+        F2B[Fail2Ban]
+    end
+    
+    API -->|Execute| UFW
+    API -->|Control| F2B
+    API -->|Persistence| DB[(SQLite / JSON)]
+    API -->|Alerts| TG[Telegram Bot]
+
+    style User fill:#f9f,stroke:#333,stroke-width:2px
+    style Nginx fill:#f5f5f5,stroke:#6366f1,stroke-width:2px
+```
+
+---
+
+## 📦 Встановлення (Коротко)
+
+Встановлення Bare Metal версії вимагає наявності **Python 3**, **Node.js**, та **Nginx**.
+
+1.  **Клонуйте репозиторій:**
+    ```bash
+    git clone -b classic https://github.com/weby-homelab/ufw-gui.git /opt/ufw-gui
+    ```
+
+2.  **Налаштуйте бекенд:**
+    ```bash
+    cd /opt/ufw-gui/backend
+    pip3 install -r requirements.txt
+    ```
+
+3.  **Зберіть фронтенд:**
+    ```bash
+    cd /opt/ufw-gui/frontend
+    npm install && npm run build
+    ```
+
+4.  **Налаштуйте сервіси:**
+    Використовуйте `systemd` для запуску бекенду та `nginx` для роздачі статики.
+
+---
+
+## 📋 Системні вимоги
+- **ОС:** Ubuntu 22.04/24.04, Debian 11/12, AlmaLinux 9.
+- **Залежності:** `python3`, `nodejs`, `nginx`, `ufw`, `fail2ban`.
+- **Доступ:** Права `root` (або `sudo`) для керування системними службами.
+
+---
 <br>
 <p align="center">
   Built in Ukraine under air raid sirens &amp; blackouts ⚡<br>
