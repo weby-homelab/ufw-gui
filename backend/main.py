@@ -86,6 +86,12 @@ def run_cmd(cmd):
         raise ValueError("Command must be a non-empty list")
     if cmd[0] not in ["ufw", "fail2ban-client"]:
         raise ValueError("Unauthorized command execution attempt")
+    
+    # Strict validation for all arguments to prevent command-line injection
+    for arg in cmd[1:]:
+        if not re.match(r"^[a-zA-Z0-9_\-\.\:\/]+$", str(arg)):
+            raise ValueError(f"Invalid characters in command argument: {arg}")
+
     try:
         # cmd is a list, which is safer than shell=True
         result = subprocess.run(cmd, capture_output=True, text=True, check=True)
