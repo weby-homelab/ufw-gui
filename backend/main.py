@@ -81,14 +81,13 @@ def send_tg_alert(text):
         if t and c: requests.post(f"https://api.telegram.org/bot{t}/sendMessage", json={"chat_id": c, "text": text, "parse_mode": "Markdown"}, timeout=1.5)
     except: pass
 
-def run_cmd(cmd):
-    if not isinstance(cmd, list) or not cmd:
-        raise ValueError("Command must be a non-empty list")
-    if cmd[0] not in ["ufw", "fail2ban-client"]:
+def run_cmd(executable: str, *args):
+    if executable not in ["ufw", "fail2ban-client"]:
         raise ValueError("Unauthorized command execution attempt")
     
+    cmd = [executable] + list(args)
     # Strict validation for all arguments to prevent command-line injection
-    for arg in cmd[1:]:
+    for arg in args:
         if not re.match(r"^[a-zA-Z0-9_\-\.\:\/]+$", str(arg)):
             raise ValueError(f"Invalid characters in command argument: {arg}")
 
@@ -160,21 +159,21 @@ async def get_me(u=Depends(get_current_user)): return u
 @app.get("/api/status")
 async def get_status(u=Depends(get_current_user)):
     try:
-        status = run_cmd(["ufw", "status"])
+        status = run_cmd("ufw", "status")
         return {"status": "running" if "Status: active" in status else "inactive"}
     except: return {"status": "unknown"}
 
 @app.post("/api/toggle")
 async def toggle_ufw(action: str = Body(..., embed=True), u=Depends(get_current_user)):
     if action not in ["enable", "disable", "reload"]: raise HTTPException(status_code=400, detail="Invalid action")
-    res = run_cmd(["ufw", "--force", action])
+    res = run_cmd("ufw", "--force", action)
     log_action(u["username"], "TOGGLE_UFW", action)
     return {"result": res}
 
 @app.get("/api/rules")
 async def get_rules(u=Depends(get_current_user)):
     try:
-        output = run_cmd(["ufw", "status", "numbered"])
+        output = run_cmd("ufw", "status", "numbered")
         rules = []
         lines = output.split("\n")
         for line in lines:
@@ -201,19 +200,19 @@ async def add_rule(action: str = Body(...), port: str = Body(""), proto: str = B
     if not is_valid_proto(proto): raise HTTPException(status_code=400, detail="Invalid Protocol")
 
     create_snapshot("before_add_rule")
-    cmd = ["ufw", action]
+    args = [action]
     if ip:
-        cmd.extend(["from", ip])
+        args.extend(["from", ip])
         if port:
-            cmd.extend(["to", "any", "port", port])
+            args.extend(["to", "any", "port", port])
             if proto:
-                cmd.extend(["proto", proto])
+                args.extend(["proto", proto])
     else:
         if port:
             target = port if not proto else f"{port}/{proto}"
-            cmd.append(target)
+            args.append(target)
     
-    res = run_cmd(cmd)
+    res = run_cmd("ufw", *args)
     log_action(u["username"], "ADD_RULE", f"Action: {action}, Target: {port}, IP: {ip}")
     return {"result": res}
 
@@ -221,7 +220,7 @@ async def add_rule(action: str = Body(...), port: str = Body(""), proto: str = B
 async def delete_rule(rule_id: str, u=Depends(get_current_user)):
     if not rule_id.isdigit(): raise HTTPException(status_code=400, detail="Invalid ID")
     create_snapshot("before_del_rule")
-    res = run_cmd(["ufw", "--force", "delete", rule_id])
+    res = run_cmd("ufw", "--force", "delete", rule_id)
     log_action(u["username"], "DELETE_RULE", f"ID: {rule_id}")
     return {"result": res}
 
@@ -229,7 +228,7 @@ async def delete_rule(rule_id: str, u=Depends(get_current_user)):
 async def ban_ip(ip: str = Body(..., embed=True), u=Depends(get_current_user)):
     if not is_valid_ip(ip): raise HTTPException(status_code=400, detail="Invalid IP format")
     create_snapshot("before_ban")
-    res = run_cmd(["ufw", "insert", "1", "deny", "from", ip])
+    res = run_cmd("ufw", "insert", "1", "deny", "from", ip)
     log_action(u["username"], "BAN_IP", ip)
     return {"result": res}
 
@@ -277,7 +276,7 @@ async def get_stats(u=Depends(get_current_user)):
 @app.get("/api/fail2ban/status")
 async def get_f2b(u=Depends(get_current_user)):
     try:
-        status_out = run_cmd(["fail2ban-client", "status"])
+        status_out = run_cmd("fail2ban-client", "status")
         jails_match = re.search(r"Jail list:\s+(.*)", status_out)
         if not jails_match: return {"banned": []}
         jails = jails_match.group(1).split(", ")
@@ -285,7 +284,7 @@ async def get_f2b(u=Depends(get_current_user)):
         for j in jails:
             # Validate jail name before passing to run_cmd
             if not re.match(r"^[a-zA-Z0-9_\-]+$", j): continue
-            jail_status = run_cmd(["fail2ban-client", "status", j])
+            jail_status = run_cmd("fail2ban-client", "status", j)
             ips = jail_status.split("Banned IP list:")[-1].strip().split()
             for ip in ips: banned.append({"ip": ip, "jail": j})
         return {"banned": banned}
@@ -295,7 +294,7 @@ async def get_f2b(u=Depends(get_current_user)):
 async def unban(ip: str=Body(...), jail: str=Body(...), u=Depends(get_current_user)):
     if not is_valid_ip(ip): raise HTTPException(status_code=400, detail="Invalid IP")
     if not re.match(r"^[a-zA-Z0-9_\-]+$", jail): raise HTTPException(status_code=400, detail="Invalid Jail")
-    res = run_cmd(["fail2ban-client", "set", jail, "unbanip", ip])
+    res = run_cmd("fail2ban-client", "set", jail, "unbanip", ip)
     log_action(u["username"], "UNBAN", f"IP: {ip}, Jail: {jail}")
     return {"result": res}
 
@@ -376,7 +375,7 @@ async def restore_sn(n: str, u=Depends(get_current_user)):
         
     try:
         shutil.copytree(snap_path, "/etc/ufw", dirs_exist_ok=True)
-        run_cmd(["ufw", "reload"])
+        run_cmd("ufw", "reload")
         log_action(u["username"], "RESTORE", safe_n)
         return {"status": "success"}
     except Exception:
@@ -388,7 +387,7 @@ async def perform_rollback():
     fallback_path = os.path.join(UFW_BACKUP_DIR, "test_rollback_config")
     if os.path.exists(fallback_path):
         shutil.copytree(fallback_path, "/etc/ufw", dirs_exist_ok=True)
-        run_cmd(["ufw", "reload"])
+        run_cmd("ufw", "reload")
         log_action("SYSTEM", "ROLLBACK", "Auto-reverted untested changes after 60s")
 
 @app.post("/api/reload/test")
@@ -407,7 +406,7 @@ async def reload_test(u=Depends(get_current_user)):
     if os.path.exists("/etc/ufw"):
         shutil.copytree("/etc/ufw", fallback_path, dirs_exist_ok=True)
     
-    res = run_cmd(["ufw", "reload"])
+    res = run_cmd("ufw", "reload")
     log_action(u["username"], "TEST_RELOAD", "Testing firewall changes for 60s")
     rollback_task = asyncio.create_task(perform_rollback())
     return {"status": "testing", "result": res}
@@ -423,4 +422,4 @@ async def reload_confirm(u=Depends(get_current_user)):
 
 @app.post("/api/reload")
 async def reload_f(u=Depends(get_current_user)):
-    res = run_cmd(["ufw", "reload"]); log_action(u["username"], "RELOAD", "System"); return {"result": res}
+    res = run_cmd("ufw", "reload"); log_action(u["username"], "RELOAD", "System"); return {"result": res}
