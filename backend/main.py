@@ -82,6 +82,10 @@ def send_tg_alert(text):
     except: pass
 
 def run_cmd(cmd):
+    if not isinstance(cmd, list) or not cmd:
+        raise ValueError("Command must be a non-empty list")
+    if cmd[0] not in ["ufw", "fail2ban-client"]:
+        raise ValueError("Unauthorized command execution attempt")
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, check=True)
         return result.stdout.strip()
