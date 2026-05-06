@@ -4,7 +4,7 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from datetime import datetime, timedelta
-import subprocess, json, os, re, shutil, asyncio, sqlite3, requests, shlex
+import subprocess, json, os, re, shutil, asyncio, sqlite3, requests
 
 # Security Hardening: Load secret from environment
 SECRET_KEY = os.getenv("UFW_GUI_SECRET_KEY")
