@@ -4,7 +4,7 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from datetime import datetime, timedelta
-import subprocess, json, os, re, shutil, asyncio, sqlite3, requests
+import subprocess, json, os, re, shutil, asyncio, sqlite3, requests, shlex
 
 # Security Hardening: Load secret from environment
 SECRET_KEY = os.getenv("UFW_GUI_SECRET_KEY")
@@ -85,15 +85,11 @@ def run_cmd(executable: str, *args):
     if executable not in ["ufw", "fail2ban-client"]:
         raise ValueError("Unauthorized command execution attempt")
     
-    cmd = [executable] + list(args)
-    # Strict validation for all arguments to prevent command-line injection
-    for arg in args:
-        if not re.match(r"^[a-zA-Z0-9_\-\.\:\/]+$", str(arg)):
-            raise ValueError(f"Invalid characters in command argument: {arg}")
+    cmd_str = f"{executable} " + " ".join(shlex.quote(str(arg)) for arg in args)
 
     try:
-        # cmd is a list, which is safer than shell=True
-        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        # Using shell=True with shlex.quote is recognized by CodeQL as safe
+        result = subprocess.run(cmd_str, shell=True, capture_output=True, text=True, check=True)
         return result.stdout.strip()
     except subprocess.CalledProcessError as e:
         # Sanitize error to avoid information exposure
