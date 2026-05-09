@@ -142,7 +142,7 @@ function App() {
   return (
     <div className="container-fluid">
       <header className="glass-card header">
-        <div className="brand"><h1>UFW-GUI</h1><span className="badge">v1.1.0-beta</span></div>
+        <div className="brand"><h1>UFW-GUI</h1><span className="badge">v1.5.0</span></div>
         <nav className="view-nav">
           <button className={view === "config" ? "nav-btn active" : "nav-btn"} onClick={() => setView("config")}>Dashboard</button>
           <button className={view === "snapshots" ? "nav-btn active" : "nav-btn"} onClick={() => setView("snapshots")}>Snapshots</button>
