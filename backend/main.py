@@ -1,6 +1,8 @@
 from fastapi import FastAPI, HTTPException, Body, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from datetime import datetime, timedelta
@@ -428,4 +430,26 @@ async def reload_confirm(u=Depends(get_current_user)):
 
 @app.post("/api/reload")
 async def reload_f(u=Depends(get_current_user)):
-    res = run_ufw("reload"); log_action(u["username"], "RELOAD", "System"); return {"result": res}
+    res = run_cmd(["ufw", "reload"]); log_action(u["username"], "RELOAD", "System"); return {"result": res}
+
+if os.path.exists("/app/static"):
+    if os.path.exists("/app/static/assets"):
+        app.mount("/assets", StaticFiles(directory="/app/static/assets"), name="assets")
+
+    @app.get("/{full_path:path}")
+    async def serve_frontend(full_path: str):
+        if full_path.startswith("api/"):
+            raise HTTPException(status_code=404)
+            
+        match = re.match(r'^([a-zA-Z0-9_\-\./]*)$', full_path)
+        if not match or ".." in full_path:
+            raise HTTPException(status_code=403, detail="Invalid path")
+        safe_path = match.group(1)
+
+        base_dir = os.path.abspath("/app/static")
+        file_path = os.path.abspath(os.path.join(base_dir, safe_path))
+        if not file_path.startswith(base_dir):
+            raise HTTPException(status_code=403, detail="Access Denied")
+        if os.path.isfile(file_path):
+            return FileResponse(file_path)
+        return FileResponse(os.path.join(base_dir, "index.html"))

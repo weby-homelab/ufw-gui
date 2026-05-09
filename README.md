@@ -14,7 +14,7 @@
 
 [![Latest Release](https://img.shields.io/github/v/release/weby-homelab/ufw-gui)](https://github.com/weby-homelab/ufw-gui/releases/latest)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Docker Pulls](https://img.shields.io/docker/pulls/webyhomelab/ufw-gui-backend)](https://hub.docker.com/r/webyhomelab/ufw-gui-backend)
+[![Docker Pulls](https://img.shields.io/docker/pulls/webyhomelab/ufw-gui)](https://hub.docker.com/r/webyhomelab/ufw-gui)
 
 **UFW-GUI** — це потужний веб-інтерфейс для керування системним брандмауером `UFW` та системою `Fail2Ban`. Проєкт створений для тих, хто цінує візуальний контроль та зручність, не втрачаючи при цьому в безпеці.
 
@@ -89,7 +89,7 @@ graph TD
     docker compose up -d
     ```
 
-Панель буде доступна на порті **80** (або налаштованому у вашому Nginx).
+Панель буде доступна на порті **8080** (або налаштованому у вашому Reverse Proxy).
 
 ---
 

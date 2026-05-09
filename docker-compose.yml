@@ -1,45 +1,16 @@
 services:
-  backend:
-    build:
-      context: .
-      dockerfile: backend/Dockerfile
-    container_name: ufw-gui-backend
+  ufw-gui:
+    image: webyhomelab/ufw-gui:latest
+    container_name: ufw-gui
     network_mode: host
     privileged: true
     environment:
       - TZ=Europe/Kyiv
+      - UFW_GUI_SECRET_KEY=change_me_to_a_secure_random_string_123
     volumes:
-      - ./backend:/app
+      - ./data:/app/data
       - /etc/ufw:/etc/ufw
       - /var/run/fail2ban/fail2ban.sock:/var/run/fail2ban/fail2ban.sock
       - /var/log:/var/log:ro
       - /etc/localtime:/etc/localtime:ro
-    restart: always
-
-  frontend:
-    build:
-      context: .
-      dockerfile: frontend/Dockerfile
-    container_name: ufw-gui-frontend
-    network_mode: host
-    environment:
-      - TZ=Europe/Kyiv
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-      - /etc/localtime:/etc/localtime:ro
-    restart: always
-
-  nginx:
-    image: nginx:alpine
-    container_name: ufw-gui-nginx
-    network_mode: host
-    environment:
-      - TZ=Europe/Kyiv
-    volumes:
-      - ./docker/nginx.conf:/etc/nginx/conf.d/default.conf:ro
-      - /etc/localtime:/etc/localtime:ro
-    depends_on:
-      - backend
-      - frontend
     restart: always
