@@ -1,7 +1,7 @@
 :root { --bg-color: #0b0f19; --text-main: #ffffff; --card-bg: rgba(20, 25, 40, 0.6); --card-border: rgba(255, 255, 255, 0.08); --accent-success: #00e676; --accent-success-bg: rgba(0, 230, 118, 0.1); --accent-danger: #ff3d00; --accent-danger-bg: rgba(255, 61, 0, 0.15); --input-bg: rgba(0, 0, 0, 0.4); --input-border: rgba(255, 255, 255, 0.15); --hover-overlay: rgba(255, 255, 255, 0.05); }
 * { box-sizing: border-box; }
 body { margin: 0; background-color: var(--bg-color); color: var(--text-main); font-family: "Inter", sans-serif; min-height: 100vh; padding: 20px 0; -webkit-font-smoothing: antialiased; }
-.container-fluid { width: 100%; max-width: 100%; padding: 0 15px; margin: 0; display: flex; flex-direction: column; gap: 20px; box-sizing: border-box; }
+.container-fluid { width: 100%; max-width: 1800px; padding: 0 15px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; box-sizing: border-box; }
 .glass-card { background: var(--card-bg); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid var(--card-border); border-radius: 12px; padding: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.2); }
 .header { display: flex; justify-content: space-between; align-items: center; }
 .brand h1 { margin: 0; font-size: 1.5em; display: flex; gap: 10px; align-items: center; font-weight: 500; }
@@ -42,7 +42,7 @@ body { margin: 0; background-color: var(--bg-color); color: var(--text-main); fo
 .add-form input { background: var(--input-bg); border: 1px solid var(--input-border); color: #fff; padding: 10px; border-radius: 8px; font-size: 0.9em; transition: 0.2s; outline: none; flex-grow: 1; }
 .add-form button { background: var(--accent-success); color: #000; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; }
 
-.table-container { overflow-x: auto; background: var(--input-bg); border-radius: 8px; border: 1px solid var(--card-border); margin-top: 15px; }
+.table-container { width: 100%; max-width: 100vw; overflow-x: auto; background: var(--input-bg); border-radius: 8px; border: 1px solid var(--card-border); margin-top: 15px; }
 .log-table { width: 100%; border-collapse: collapse; min-width: 600px; }
 .log-table th { text-align: left; opacity: 0.6; padding: 12px 15px; border-bottom: 1px solid var(--card-border); font-size: 0.75em; text-transform: uppercase; background: rgba(0,0,0,0.2); }
 .log-table td { padding: 12px 15px; border-bottom: 1px solid rgba(255,255,255,0.03); font-family: "JetBrains Mono", monospace; font-size: 0.85em; }
@@ -75,11 +75,11 @@ h3 { margin-top: 0; font-weight: 500; font-size: 1.1em; color: rgba(255,255,255,
 
 @media (max-width: 992px) {
   .dashboard-grid { grid-template-columns: 1fr; }
-  .side-pane { flex-direction: row; flex-wrap: wrap; }
-  .side-pane > section { flex: 1; min-width: 280px; }
+  .side-pane { flex-direction: column; }
+  .side-pane > section { width: 100%; }
 }
 @media (max-width: 768px) {
   .header { flex-direction: column; align-items: flex-start; gap: 15px; }
-  .header-actions { width: 100%; justify-content: space-between; }
+  .header-actions { width: 100%; display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; }
   .side-pane > section { min-width: 100%; }
 }
