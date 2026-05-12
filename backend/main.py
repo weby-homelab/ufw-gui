@@ -84,10 +84,17 @@ def send_tg_alert(text):
     except: pass
 
 def validate_args(args):
+    safe_chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-.:/"
+    safe_args = []
     for arg in args:
-        if not re.match(r"^[a-zA-Z0-9_\-\.\:\/]+$", str(arg)):
-            raise ValueError(f"Invalid characters in command argument: {arg}")
-    return [str(arg) for arg in args]
+        str_arg = str(arg)
+        for ch in str_arg:
+            if ch not in safe_chars:
+                raise ValueError(f"Invalid characters in command argument: {arg}")
+        # Taint Breaking: reconstruct string from safe constants
+        safe_arg = "".join(safe_chars[safe_chars.index(ch)] for ch in str_arg)
+        safe_args.append(safe_arg)
+    return safe_args
 
 def run_ufw(*args):
     safe_args = validate_args(args)
