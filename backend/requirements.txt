@@ -4,5 +4,5 @@ python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
 python-multipart==0.0.12
 requests==2.32.3
-python-dotenv==1.0.1
+python-dotenv==1.2.2
 bcrypt==4.2.0
