@@ -15,7 +15,7 @@ if not SECRET_KEY:
 
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24
-pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/login")
 
 DATA_DIR = "/app/data"
@@ -80,7 +80,7 @@ def send_tg_alert(text):
     try:
         with open(CONFIG_FILE, "r") as f: cfg = json.load(f)
         t = cfg.get("tg_token"); c = cfg.get("tg_chat_id")
-        if t and c: requests.post(f"https://api.telegram.org/bot{t}/sendMessage", json={"chat_id": c, "text": text, "parse_mode": "Markdown"}, timeout=1.5)
+        if t and c: requests.post(f"https://api.telegram.org/bot{t}/sendMessage", json={"chat_id": c, "text": text, "parse_mode": "Markdown"}, timeout=5)
     except: pass
 
 def validate_args(args):
@@ -437,7 +437,7 @@ async def reload_confirm(u=Depends(get_current_user)):
 
 @app.post("/api/reload")
 async def reload_f(u=Depends(get_current_user)):
-    res = run_cmd(["ufw", "reload"]); log_action(u["username"], "RELOAD", "System"); return {"result": res}
+    res = run_ufw("reload"); log_action(u["username"], "RELOAD", "System"); return {"result": res}
 
 if os.path.exists("/app/static"):
     if os.path.exists("/app/static/assets"):
