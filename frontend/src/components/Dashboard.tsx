@@ -15,7 +15,6 @@ interface DashboardProps {
   inputs: any;
   setInputs: (inputs: any) => void;
   apiAction: (url: string, method: string, body?: any) => void;
-  loading: boolean;
   testTime: number;
 }
 

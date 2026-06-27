@@ -1,9 +1,11 @@
+import type { FormEvent } from "react"
+
 interface LoginProps {
   onLogin: (token: string) => void;
 }
 
 function LoginForm({ onLogin }: LoginProps) {
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     const username = formData.get("user") as string;

@@ -1,11 +1,11 @@
-import { useState, useEffect } from "react";
+import type { FormEvent } from "react";
 
 interface SetupProps {
   onComplete: () => void;
 }
 
 function SetupForm({ onComplete }: SetupProps) {
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     const username = formData.get("user") as string;

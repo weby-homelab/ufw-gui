@@ -4,7 +4,7 @@ UFW-GUI - Authentication router
 from fastapi import APIRouter, Body, Depends, HTTPException
 from fastapi.security import OAuth2PasswordRequestForm
 
-from backend.services.auth_service import create_access_token, verify_password, get_current_user
+from backend.services.auth_service import create_access_token, verify_password, get_current_user, hash_password
 from backend.services.filesystem_service import load_users, save_users
 from backend.services.database_service import log_action
 from backend.utils.validators import is_valid_username
