@@ -3,7 +3,9 @@ services:
     image: webyhomelab/ufw-gui:latest
     container_name: ufw-gui
     network_mode: host
-    privileged: true
+    cap_add:
+      - NET_ADMIN
+      - SYS_ADMIN
     environment:
       - TZ=Europe/Kyiv
       - UFW_GUI_SECRET_KEY=change_me_to_a_secure_random_string_123
