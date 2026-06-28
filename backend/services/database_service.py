@@ -4,13 +4,18 @@ Handles SQLite operations for drops and audit logs
 """
 import os
 import sqlite3
-import threading
+import logging
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from backend.services.subprocess_service import run_fail2ban
 
+logger = logging.getLogger(__name__)
 
 DATA_DIR = "/app/data"
 DB_FILE = f"{DATA_DIR}/stats.db"
+
+# Expose a thread pool executor with maximum 2 threads to queue/throttling alerts
+_tg_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="tg_alerts")
 
 
 def init_db():
@@ -37,11 +42,8 @@ def log_action(username: str, action: str, details: str):
     )
     conn.commit()
     conn.close()
-    threading.Thread(
-        target=_send_tg_alert,
-        args=(username, action, details),
-        daemon=True
-    ).start()
+    # Submit Telegram alert task to thread pool instead of spawning a new OS thread
+    _tg_executor.submit(_send_tg_alert, username, action, details)
 
 
 def _send_tg_alert(username: str, action: str, details: str):
@@ -56,13 +58,14 @@ def _send_tg_alert(username: str, action: str, details: str):
         if t and c:
             import requests
             text = f"🛡️ *UFW Action*\n👤 User: {username}\n🎯 Action: {action}\n📝 Details: {details}"
-            requests.post(
+            response = requests.post(
                 f"https://api.telegram.org/bot{t}/sendMessage",
                 json={"chat_id": c, "text": text, "parse_mode": "Markdown"},
                 timeout=5
             )
-    except Exception:
-        pass
+            response.raise_for_status()
+    except Exception as e:
+        logger.error(f"Failed to send Telegram alert: {e}")
 
 
 def get_recent_drops(limit: int = 500) -> list:
