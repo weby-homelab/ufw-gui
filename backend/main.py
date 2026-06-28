@@ -10,9 +10,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
-from backend.services.database_service import init_db
-from backend.services.filesystem_service import init_dirs
+from backend.services.database_service import init_db, log_action, shutdown_db
+from backend.services.filesystem_service import init_dirs, get_test_state, get_test_rollback_path, clear_test_state
 from backend.services.log_parser_service import start_log_parser
+from backend.services.subprocess_service import run_ufw
 # --- Import Routers ---
 from backend.routers.auth_router import router as auth_router
 from backend.routers.ufw_router import router as ufw_router
@@ -20,10 +21,6 @@ from backend.routers.fail2ban_router import router as f2b_router
 from backend.routers.logs_router import router as logs_router
 from backend.routers.admin_router import router as admin_router
 from backend.routers.reload_router import router as reload_router
-from backend.services.database_service import init_db, log_action
-from backend.services.filesystem_service import init_dirs, get_test_state, get_test_rollback_path, clear_test_state
-from backend.services.log_parser_service import start_log_parser
-from backend.services.subprocess_service import run_ufw
 import shutil
 
 
@@ -65,6 +62,7 @@ async def lifespan(app: FastAPI):
         await parser_task
     except asyncio.CancelledError:
         pass
+    shutdown_db()
 
 
 app = FastAPI(
@@ -109,16 +107,16 @@ if os.path.exists("/app/static"):
         if full_path.startswith("api/"):
             raise HTTPException(status_code=404)
 
-        import re
-        match = re.match(r'^([a-zA-Z0-9_\-\./]*)$', full_path)
-        if not match or ".." in full_path:
+        # Normalize path and prevent any relative directory traversal
+        normalized_path = os.path.normpath(full_path)
+        if normalized_path.startswith("..") or normalized_path.startswith("/"):
             raise HTTPException(status_code=403, detail="Invalid path")
 
-        safe_path = match.group(1)
         base_dir = os.path.abspath("/app/static")
-        file_path = os.path.abspath(os.path.join(base_dir, safe_path))
+        file_path = os.path.abspath(os.path.join(base_dir, normalized_path))
 
-        if not file_path.startswith(base_dir):
+        # Strict containment check to avoid directory traversal
+        if not (file_path == base_dir or file_path.startswith(base_dir + os.sep)):
             raise HTTPException(status_code=403, detail="Access Denied")
 
         if os.path.isfile(file_path):

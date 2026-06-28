@@ -22,7 +22,17 @@ def is_valid_ip(ip: str) -> bool:
 def is_valid_port(port: str) -> bool:
     if not port:
         return True
-    return bool(re.match(r"^\d+(:\d+)?$", port))
+    if not re.match(r"^\d+(:\d+)?$", port):
+        return False
+    parts = port.split(":")
+    for p in parts:
+        val = int(p)
+        if val < 1 or val > 65535:
+            return False
+    if len(parts) == 2:
+        if int(parts[0]) > int(parts[1]):
+            return False
+    return True
 
 
 def is_valid_proto(proto: str) -> bool:

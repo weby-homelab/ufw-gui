@@ -13,7 +13,7 @@
 *Modern, secure, and aesthetic network security management for Linux via Docker.*
 
 [![Latest Release](https://img.shields.io/github/v/release/weby-homelab/ufw-gui)](https://github.com/weby-homelab/ufw-gui/releases/latest)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-GPLv3-blue.svg)](LICENSE)
 [![Docker Pulls](https://img.shields.io/docker/pulls/webyhomelab/ufw-gui)](https://hub.docker.com/r/webyhomelab/ufw-gui)
 
 **UFW-GUI** is a powerful web interface for managing the `UFW` system firewall and `Fail2Ban`. The project is designed for those who value visual control and convenience without compromising on security.
@@ -96,7 +96,13 @@ The dashboard will be available on port **80** (or as configured in your Nginx).
 ## 📋 System Requirements
 - **OS:** Ubuntu 22.04+, Debian 11+, AlmaLinux 9+.
 - **Dependencies:** `docker`, `docker-compose`, `ufw`, `fail2ban`.
-- **Access:** `root` privileges (privileged mode) for the backend container.
+- **Access:** `root` privileges (NET_ADMIN & SYS_ADMIN capabilities) for the backend container.
+
+### ⚠️ Docker & Host Firewall Integration (Must Read)
+- **Host Firewall Engine:** `UFW` and `Fail2Ban` **must be installed and actively running on the Host OS**, not inside the container.
+- **How it works:** The container runs in `network_mode: host` to directly access and manage the host's network interfaces and iptables rules. The backend executes `ufw` commands within the container's namespace to manipulate the host's firewall rules (via `/etc/ufw` which is mounted from the host).
+- **Log Monitoring:** Packet drop statistics and security logs are gathered by mounting `/var/log` from the Host OS (as read-only). The container parses the host's `/var/log/ufw.log` and `/var/log/fail2ban.log`.
+- **Fail2Ban Management:** The container connects to the host's Fail2Ban daemon via the mounted socket `/var/run/fail2ban/fail2ban.sock`.
 
 ---
 <br>
