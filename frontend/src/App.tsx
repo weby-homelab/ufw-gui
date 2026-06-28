@@ -19,7 +19,8 @@ function App() {
   const [bannedIps, setBannedIps] = useState<any[]>([])
   const [fwLogs, setFwLogs] = useState<any[]>([])
   const [stats, setStats] = useState<any[]>([])
-  const [loading, setLoading] = useState(false)
+  const [apiLoading, setApiLoading] = useState(false)
+  const [testLoading, setTestLoading] = useState(false)
   const [testTime, setTestTime] = useState(0)
   const [isTesting, setIsTesting] = useState(false)
 
@@ -71,11 +72,11 @@ function App() {
       alert("Cannot modify firewall rules while a test is active. Please confirm or wait for rollback.")
       return
     }
-    setLoading(true)
+    setApiLoading(true)
     const res = await fetch(url, { method, headers: authHeaders, body: body ? JSON.stringify(body) : null })
     if (res.ok) fetchData()
     else alert("Action failed")
-    setLoading(false)
+    setApiLoading(false)
   }
 
   const fetchData = async () => {
@@ -130,7 +131,7 @@ function App() {
 
   const handleTestChanges = async () => {
     if (!confirm("Apply changes and start a 60-second test?")) return
-    setLoading(true)
+    setTestLoading(true)
     try {
       const res = await fetch("/api/reload/test", { method: "POST", headers: authHeaders })
       if (!res.ok) throw new Error()
@@ -141,12 +142,12 @@ function App() {
       setTestTime(0)
       setIsTesting(false)
     } finally {
-      setLoading(false)
+      setTestLoading(false)
     }
   }
 
   const confirmChanges = async () => {
-    setLoading(true)
+    setTestLoading(true)
     try {
       const res = await fetch("/api/reload/confirm", { method: "POST", headers: authHeaders })
       if (!res.ok) throw new Error()
@@ -156,7 +157,7 @@ function App() {
     } catch {
       alert("Confirmation failed. Auto-rollback will occur.")
     } finally {
-      setLoading(false)
+      setTestLoading(false)
     }
   }
 
@@ -203,7 +204,6 @@ function App() {
             inputs={inputs}
             setInputs={setInputs}
             apiAction={apiAction}
-            loading={loading}
             testTime={testTime}
           />
         )}

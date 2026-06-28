@@ -3,6 +3,7 @@ UFW-GUI - Database service
 Handles SQLite operations for drops and audit logs
 """
 import os
+import json
 import sqlite3
 import logging
 from concurrent.futures import ThreadPoolExecutor
@@ -40,14 +41,26 @@ def init_db():
 
 def log_action(username: str, action: str, details: str):
     conn = sqlite3.connect(DB_FILE)
-    conn.execute(
-        "INSERT INTO audit_logs (ts, username, action, details) VALUES (?, ?, ?, ?)",
-        (datetime.now().isoformat(), username, action, str(details))
-    )
-    conn.commit()
-    conn.close()
-    # Submit Telegram alert task to thread pool instead of spawning a new OS thread
-    _tg_executor.submit(_send_tg_alert, username, action, details)
+    try:
+        conn.execute(
+            "INSERT INTO audit_logs (ts, username, action, details) VALUES (?, ?, ?, ?)",
+            (datetime.now().isoformat(), username, action, str(details))
+        )
+        conn.commit()
+    except Exception as e:
+        logger.error(f"Failed to save action to audit log: {e}")
+    finally:
+        conn.close()
+
+    try:
+        # Submit Telegram alert task to thread pool instead of spawning a new OS thread
+        _tg_executor.submit(_send_tg_alert, username, action, details)
+    except Exception as e:
+        logger.error(f"Failed to submit Telegram alert: {e}")
+
+
+def shutdown_db():
+    _tg_executor.shutdown(wait=False)
 
 
 def _send_tg_alert(username: str, action: str, details: str):
@@ -56,7 +69,7 @@ def _send_tg_alert(username: str, action: str, details: str):
         return
     try:
         with open(config_file, "r") as f:
-            cfg = __import__("json").load(f)
+            cfg = json.load(f)
         t = cfg.get("tg_token")
         c = cfg.get("tg_chat_id")
         if t and c:

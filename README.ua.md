@@ -13,7 +13,7 @@
 *Сучасне, безпечне та естетичне керування мережевою безпекою Linux через Docker.*
 
 [![Latest Release](https://img.shields.io/github/v/release/weby-homelab/ufw-gui)](https://github.com/weby-homelab/ufw-gui/releases/latest)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-GPLv3-blue.svg)](LICENSE)
 [![Docker Pulls](https://img.shields.io/docker/pulls/webyhomelab/ufw-gui)](https://hub.docker.com/r/webyhomelab/ufw-gui)
 
 **UFW-GUI** — це потужний веб-інтерфейс для керування системним брандмауером `UFW` та системою `Fail2Ban`. Проєкт створений для тих, хто цінує візуальний контроль та зручність, не втрачаючи при цьому в безпеці.
@@ -96,7 +96,13 @@ graph TD
 ## 📋 Системні вимоги
 - **ОС:** Ubuntu 22.04+, Debian 11+, AlmaLinux 9+.
 - **Залежності:** `docker`, `docker-compose`, `ufw`, `fail2ban`.
-- **Доступ:** Права `root` (privileged mode) для контейнера бекенду.
+- **Доступ:** Права `root` (NET_ADMIN та SYS_ADMIN capabilities) для контейнера бекенду.
+
+### ⚠️ Особливості інтеграції Docker та хост-системи (Обов'язково до прочитання)
+- **Активність служб на хості:** Служби `UFW` та `Fail2Ban` **повинні бути встановлені та активні на хості (Host OS)**, а не всередині контейнера.
+- **Принцип роботи:** Контейнер використовує `network_mode: host` для прямого доступу до мережевого стеку хоста. Бекенд виконує утиліту `ufw` у просторі контейнера, керуючи конфігурацією фаєрволу хоста через примонтовану папку `/etc/ufw`.
+- **Моніторинг логів:** Статистика відхилених пакетів та атаки зчитуються шляхом монтування `/var/log` хоста у режимі тільки для читання (read-only). Контейнер парсить хостові файли `/var/log/ufw.log` та `/var/log/fail2ban.log`.
+- **Керування Fail2Ban:** Взаємодія з демоном Fail2Ban хоста відбувається через примонтований сокет `/var/run/fail2ban/fail2ban.sock`.
 
 ---
 <br>

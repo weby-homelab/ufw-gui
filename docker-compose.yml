@@ -8,6 +8,7 @@ services:
       - SYS_ADMIN
     environment:
       - TZ=Europe/Kyiv
+      - PORT=8080 # Change this port if 8080 is already occupied on the host
       - UFW_GUI_SECRET_KEY=change_me_to_a_secure_random_string_123
     volumes:
       - ./data:/app/data
