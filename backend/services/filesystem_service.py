@@ -5,6 +5,7 @@ Handles snapshot management, users, and configuration files
 import os
 import json
 import shutil
+import sqlite3
 import tempfile
 import asyncio
 from datetime import datetime
@@ -24,26 +25,54 @@ def init_dirs():
 # --- Users ---
 
 def load_users() -> dict:
-    if not os.path.exists(USER_DATA_FILE):
+    DB_FILE = f"{DATA_DIR}/stats.db"
+    # Auto-migration if users.json exists
+    if os.path.exists(USER_DATA_FILE):
+        try:
+            with open(USER_DATA_FILE, "r") as f:
+                legacy_users = json.load(f)
+            conn = sqlite3.connect(DB_FILE)
+            conn.execute("BEGIN TRANSACTION")
+            for username, data in legacy_users.items():
+                conn.execute(
+                    "INSERT OR IGNORE INTO users (username, password, role) VALUES (?, ?, ?)",
+                    (username, data["password"], data.get("role", "admin"))
+                )
+            conn.commit()
+            conn.close()
+            os.remove(USER_DATA_FILE)
+        except Exception:
+            pass
+
+    if not os.path.exists(DB_FILE):
         return {}
     try:
-        with open(USER_DATA_FILE, "r") as f:
-            return json.load(f)
+        conn = sqlite3.connect(DB_FILE)
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute("SELECT username, password, role FROM users").fetchall()
+        conn.close()
+        return {r["username"]: {"password": r["password"], "role": r["role"]} for r in rows}
     except Exception:
         return {}
 
 
 def save_users(users: dict):
-    os.makedirs(DATA_DIR, exist_ok=True)
-    fd, temp_path = tempfile.mkstemp(dir=DATA_DIR, prefix="users_", suffix=".tmp")
+    DB_FILE = f"{DATA_DIR}/stats.db"
+    conn = sqlite3.connect(DB_FILE)
     try:
-        with os.fdopen(fd, 'w') as f:
-            json.dump(users, f)
-        os.replace(temp_path, USER_DATA_FILE)
+        conn.execute("BEGIN TRANSACTION")
+        conn.execute("DELETE FROM users")
+        for username, data in users.items():
+            conn.execute(
+                "INSERT INTO users (username, password, role) VALUES (?, ?, ?)",
+                (username, data["password"], data.get("role", "admin"))
+            )
+        conn.commit()
     except Exception as e:
-        if os.path.exists(temp_path):
-            os.remove(temp_path)
+        conn.rollback()
         raise e
+    finally:
+        conn.close()
 
 
 # --- Config ---
