@@ -3,6 +3,22 @@ UFW-GUI - Admin, settings, and snapshots router
 """
 from fastapi import APIRouter, Body, Depends, HTTPException
 from typing import Any
+from pydantic import BaseModel, Field
+
+
+class SettingsSchema(BaseModel):
+    tg_token: str | None = Field(default=None, max_length=100)
+    tg_chat_id: str | None = Field(default=None, max_length=50)
+
+    model_config = {
+        "extra": "ignore",
+        "json_schema_extra": {
+            "example": {
+                "tg_token": "123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ",
+                "tg_chat_id": "-100123456789"
+            }
+        }
+    }
 
 from backend.services.auth_service import get_current_user, hash_password
 from backend.services.filesystem_service import (
@@ -91,13 +107,13 @@ async def get_settings(user=Depends(get_current_user)):
 
 @router.post("/settings")
 async def save_settings(
-    data: dict = Body(...),
+    data: SettingsSchema,
     user=Depends(get_current_user),
 ):
     if user["role"] != "superadmin":
         raise HTTPException(status_code=403)
     try:
-        save_config(data)
+        save_config(data.model_dump())
         return {"status": "success"}
     except Exception:
         raise HTTPException(status_code=500, detail="Failed to save settings")
