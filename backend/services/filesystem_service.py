@@ -6,6 +6,7 @@ import os
 import json
 import shutil
 import tempfile
+import asyncio
 from datetime import datetime
 
 
@@ -72,12 +73,12 @@ def save_config(data: dict):
 
 # --- Snapshots ---
 
-def create_snapshot(label: str = "auto") -> str:
+async def create_snapshot(label: str = "auto") -> str:
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     safe_label = "".join([c if c.isalnum() else "_" for c in label])
     snap_path = os.path.join(UFW_BACKUP_DIR, f"snap_{ts}_{safe_label}")
     if os.path.exists("/etc/ufw"):
-        shutil.copytree("/etc/ufw", snap_path, dirs_exist_ok=True)
+        await asyncio.to_thread(shutil.copytree, "/etc/ufw", snap_path, dirs_exist_ok=True)
     return ts
 
 
@@ -87,7 +88,7 @@ def list_snapshots() -> list:
     return sorted(os.listdir(UFW_BACKUP_DIR), reverse=True)
 
 
-def restore_snapshot(name: str) -> bool:
+async def restore_snapshot(name: str) -> bool:
     safe_name = os.path.basename(name)
     if not safe_name or safe_name.startswith("."):
         raise ValueError("Invalid snapshot name")
@@ -101,7 +102,9 @@ def restore_snapshot(name: str) -> bool:
     if not os.path.exists(snap_path):
         raise FileNotFoundError("Snapshot not found")
 
-    shutil.copytree(snap_path, "/etc/ufw", dirs_exist_ok=True)
+    if os.path.exists("/etc/ufw"):
+        await asyncio.to_thread(shutil.rmtree, "/etc/ufw")
+    await asyncio.to_thread(shutil.copytree, snap_path, "/etc/ufw")
     return True
 
 
@@ -109,13 +112,49 @@ def get_test_rollback_path() -> str:
     return os.path.join(UFW_BACKUP_DIR, "test_rollback_config")
 
 
-def save_test_rollback():
+async def save_test_rollback():
     fallback_path = get_test_rollback_path()
     if os.path.exists(fallback_path):
         if os.path.isdir(fallback_path):
-            shutil.rmtree(fallback_path)
+            await asyncio.to_thread(shutil.rmtree, fallback_path)
         else:
-            os.remove(fallback_path)
+            await asyncio.to_thread(os.remove, fallback_path)
 
     if os.path.exists("/etc/ufw"):
-        shutil.copytree("/etc/ufw", fallback_path, dirs_exist_ok=True)
+        await asyncio.to_thread(shutil.copytree, "/etc/ufw", fallback_path, dirs_exist_ok=True)
+
+
+# --- Test State ---
+
+TEST_STATE_FILE = f"{DATA_DIR}/test_state.json"
+
+
+def get_test_state() -> dict:
+    if not os.path.exists(TEST_STATE_FILE):
+        return {}
+    try:
+        with open(TEST_STATE_FILE, "r") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def save_test_state(state: dict):
+    os.makedirs(DATA_DIR, exist_ok=True)
+    fd, temp_path = tempfile.mkstemp(dir=DATA_DIR, prefix="test_state_", suffix=".tmp")
+    try:
+        with os.fdopen(fd, 'w') as f:
+            json.dump(state, f)
+        os.replace(temp_path, TEST_STATE_FILE)
+    except Exception as e:
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+        raise e
+
+
+def clear_test_state():
+    if os.path.exists(TEST_STATE_FILE):
+        try:
+            os.remove(TEST_STATE_FILE)
+        except Exception:
+            pass

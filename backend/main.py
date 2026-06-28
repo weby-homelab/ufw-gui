@@ -3,6 +3,7 @@ UFW-GUI - FastAPI Application Entry Point
 Imports and registers all routers, configures middleware, serves frontend.
 """
 import os
+import asyncio
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -11,7 +12,7 @@ from fastapi.responses import FileResponse
 
 from backend.services.database_service import init_db
 from backend.services.filesystem_service import init_dirs
-
+from backend.services.log_parser_service import start_log_parser
 # --- Import Routers ---
 from backend.routers.auth_router import router as auth_router
 from backend.routers.ufw_router import router as ufw_router
@@ -19,6 +20,30 @@ from backend.routers.fail2ban_router import router as f2b_router
 from backend.routers.logs_router import router as logs_router
 from backend.routers.admin_router import router as admin_router
 from backend.routers.reload_router import router as reload_router
+from backend.services.database_service import init_db, log_action
+from backend.services.filesystem_service import init_dirs, get_test_state, get_test_rollback_path, clear_test_state
+from backend.services.log_parser_service import start_log_parser
+from backend.services.subprocess_service import run_ufw
+import shutil
+
+
+async def check_and_rollback_on_startup():
+    state = get_test_state()
+    if state.get("status") == "testing":
+        import logging
+        logging.info("Interrupted firewall test detected. Performing auto-rollback...")
+        fallback_path = get_test_rollback_path()
+        if os.path.exists(fallback_path):
+            try:
+                if os.path.exists("/etc/ufw"):
+                    await asyncio.to_thread(shutil.rmtree, "/etc/ufw")
+                await asyncio.to_thread(shutil.copytree, fallback_path, "/etc/ufw")
+                await run_ufw("reload")
+                log_action("SYSTEM", "CRASH_ROLLBACK", "Detected interrupted test. Auto-reverted UFW config.")
+                logging.info("Auto-rollback successful.")
+            except Exception as e:
+                logging.error(f"Failed to perform startup rollback: {str(e)}")
+        clear_test_state()
 
 
 @asynccontextmanager
@@ -26,13 +51,26 @@ async def lifespan(app: FastAPI):
     # Initialize directories and database on startup
     init_dirs()
     init_db()
+    
+    # Check for interrupted test and roll back if needed
+    await check_and_rollback_on_startup()
+    
+    # Start background log parser for statistics
+    parser_task = asyncio.create_task(start_log_parser())
     yield
+    
+    # Clean up parser task on shutdown
+    parser_task.cancel()
+    try:
+        await parser_task
+    except asyncio.CancelledError:
+        pass
 
 
 app = FastAPI(
     title="UFW-GUI API",
     description="Modern firewall management for Linux via Docker",
-    version="1.5.7",
+    version="1.5.8",
     lifespan=lifespan,
 )
 
@@ -50,6 +88,10 @@ app.add_middleware(
 )
 
 # --- Register Routers ---
+@app.get("/api/health", tags=["Health"])
+async def health_check():
+    return {"status": "ok"}
+
 app.include_router(auth_router)
 app.include_router(ufw_router)
 app.include_router(f2b_router)

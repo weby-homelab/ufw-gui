@@ -60,9 +60,19 @@ async def add_user(
 async def del_user(username: str, user=Depends(get_current_user)):
     if user["role"] != "superadmin":
         raise HTTPException(status_code=403)
+    
+    if user["username"] == username:
+        raise HTTPException(status_code=400, detail="Cannot delete yourself")
+
     users = load_users()
     if username not in users:
         raise HTTPException(status_code=404, detail="User not found")
+    
+    if users[username].get("role") == "superadmin":
+        superadmins = [name for name, u_data in users.items() if u_data.get("role") == "superadmin"]
+        if len(superadmins) <= 1:
+            raise HTTPException(status_code=400, detail="Cannot delete the only superadmin")
+
     del users[username]
     save_users(users)
     log_action(user["username"], "DEL_USER", username)
@@ -107,8 +117,8 @@ async def restore_snapshot_route(
     user=Depends(get_current_user),
 ):
     try:
-        restore_snapshot(name)
-        run_ufw("reload")
+        await restore_snapshot(name)
+        await run_ufw("reload")
         log_action(user["username"], "RESTORE", name)
         return {"status": "success"}
     except FileNotFoundError:

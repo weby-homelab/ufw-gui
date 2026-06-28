@@ -21,6 +21,7 @@ function App() {
   const [stats, setStats] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [testTime, setTestTime] = useState(0)
+  const [isTesting, setIsTesting] = useState(false)
 
   // Admin state
   const [auditLogs, setAuditLogs] = useState<any[]>([])
@@ -66,6 +67,10 @@ function App() {
   }
 
   const apiAction = async (url: string, method: string, body?: any) => {
+    if (testTime > 0) {
+      alert("Cannot modify firewall rules while a test is active. Please confirm or wait for rollback.")
+      return
+    }
     setLoading(true)
     const res = await fetch(url, { method, headers: authHeaders, body: body ? JSON.stringify(body) : null })
     if (res.ok) fetchData()
@@ -115,31 +120,44 @@ function App() {
   useEffect(() => {
     let interval: any
     if (testTime > 0) interval = setInterval(() => setTestTime(prev => prev - 1), 1000)
-    else if (testTime === 0 && loading) { setLoading(false); alert("Test timeout! Configuration auto-reverted."); fetchData() }
+    else if (testTime === 0 && isTesting) {
+      setIsTesting(false)
+      alert("Test timeout! Configuration auto-reverted.")
+      fetchData()
+    }
     return () => clearInterval(interval)
-  }, [testTime])
+  }, [testTime, isTesting])
 
   const handleTestChanges = async () => {
     if (!confirm("Apply changes and start a 60-second test?")) return
     setLoading(true)
-    setTestTime(60)
     try {
       const res = await fetch("/api/reload/test", { method: "POST", headers: authHeaders })
       if (!res.ok) throw new Error()
+      setTestTime(60)
+      setIsTesting(true)
     } catch {
       alert("Failed to initiate test")
-      setLoading(false)
       setTestTime(0)
+      setIsTesting(false)
+    } finally {
+      setLoading(false)
     }
   }
 
   const confirmChanges = async () => {
+    setLoading(true)
     try {
-      await fetch("/api/reload/confirm", { method: "POST", headers: authHeaders })
+      const res = await fetch("/api/reload/confirm", { method: "POST", headers: authHeaders })
+      if (!res.ok) throw new Error()
       setTestTime(0)
-      setLoading(false)
+      setIsTesting(false)
       fetchData()
-    } catch { alert("Confirmation failed. Auto-rollback will occur.") }
+    } catch {
+      alert("Confirmation failed. Auto-rollback will occur.")
+    } finally {
+      setLoading(false)
+    }
   }
 
   if (setupNeeded === true) return <SetupForm onComplete={() => setSetupNeeded(false)} />

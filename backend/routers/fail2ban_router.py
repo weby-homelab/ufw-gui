@@ -1,7 +1,7 @@
 """
 UFW-GUI - Fail2Ban router
 """
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter, Body, Depends, HTTPException
 import re
 
 from backend.services.auth_service import get_current_user
@@ -15,7 +15,7 @@ router = APIRouter(prefix="/api/fail2ban", tags=["Fail2Ban"])
 @router.get("/status")
 async def get_f2b_status(user=Depends(get_current_user)):
     try:
-        status_out = run_fail2ban("status")
+        status_out = await run_fail2ban("status")
         jails_match = re.search(r"Jail list:\s+(.*)", status_out)
         if not jails_match:
             return {"banned": []}
@@ -25,7 +25,7 @@ async def get_f2b_status(user=Depends(get_current_user)):
         for j in jails:
             if not is_valid_jail(j):
                 continue
-            jail_status = run_fail2ban("status", j)
+            jail_status = await run_fail2ban("status", j)
             ips = jail_status.split("Banned IP list:")[-1].strip().split()
             for ip in ips:
                 banned.append({"ip": ip, "jail": j})
@@ -44,6 +44,6 @@ async def unban_ip(
         raise HTTPException(status_code=400, detail="Invalid IP")
     if not is_valid_jail(jail):
         raise HTTPException(status_code=400, detail="Invalid Jail")
-    res = run_fail2ban("set", jail, "unbanip", ip)
+    res = await run_fail2ban("set", jail, "unbanip", ip)
     log_action(user["username"], "UNBAN", f"IP: {ip}, Jail: {jail}")
     return {"result": res}
