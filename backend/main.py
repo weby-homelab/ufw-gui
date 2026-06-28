@@ -32,7 +32,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="UFW-GUI API",
     description="Modern firewall management for Linux via Docker",
-    version="1.5.6",
+    version="1.5.7",
     lifespan=lifespan,
 )
 
