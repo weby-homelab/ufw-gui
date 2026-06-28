@@ -5,6 +5,7 @@ Handles snapshot management, users, and configuration files
 import os
 import json
 import shutil
+import tempfile
 from datetime import datetime
 
 
@@ -33,8 +34,15 @@ def load_users() -> dict:
 
 def save_users(users: dict):
     os.makedirs(DATA_DIR, exist_ok=True)
-    with open(USER_DATA_FILE, "w") as f:
-        json.dump(users, f)
+    fd, temp_path = tempfile.mkstemp(dir=DATA_DIR, prefix="users_", suffix=".tmp")
+    try:
+        with os.fdopen(fd, 'w') as f:
+            json.dump(users, f)
+        os.replace(temp_path, USER_DATA_FILE)
+    except Exception as e:
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+        raise e
 
 
 # --- Config ---
@@ -51,8 +59,15 @@ def load_config() -> dict:
 
 def save_config(data: dict):
     os.makedirs(DATA_DIR, exist_ok=True)
-    with open(CONFIG_FILE, "w") as f:
-        json.dump(data, f)
+    fd, temp_path = tempfile.mkstemp(dir=DATA_DIR, prefix="config_", suffix=".tmp")
+    try:
+        with os.fdopen(fd, 'w') as f:
+            json.dump(data, f)
+        os.replace(temp_path, CONFIG_FILE)
+    except Exception as e:
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+        raise e
 
 
 # --- Snapshots ---

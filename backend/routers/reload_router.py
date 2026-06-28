@@ -24,12 +24,18 @@ rollback_task_ref = None
 
 
 async def perform_rollback():
-    await asyncio.sleep(60)
-    fallback_path = get_test_rollback_path()
-    if os.path.exists(fallback_path):
-        shutil.copytree(fallback_path, "/etc/ufw", dirs_exist_ok=True)
-        run_ufw("reload")
-        log_action("SYSTEM", "ROLLBACK", "Auto-reverted untested changes after 60s")
+    try:
+        await asyncio.sleep(60)
+        fallback_path = get_test_rollback_path()
+        if os.path.exists(fallback_path):
+            await asyncio.to_thread(shutil.copytree, fallback_path, "/etc/ufw", dirs_exist_ok=True)
+            await asyncio.to_thread(run_ufw, "reload")
+            log_action("SYSTEM", "ROLLBACK", "Auto-reverted untested changes after 60s")
+    except asyncio.CancelledError:
+        pass
+    except Exception as e:
+        import logging
+        logging.error(f"Failed to auto-rollback firewall configuration: {str(e)}")
 
 
 @router.post("/test")

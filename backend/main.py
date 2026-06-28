@@ -3,6 +3,7 @@ UFW-GUI - FastAPI Application Entry Point
 Imports and registers all routers, configures middleware, serves frontend.
 """
 import os
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -11,14 +12,28 @@ from fastapi.responses import FileResponse
 from backend.services.database_service import init_db
 from backend.services.filesystem_service import init_dirs
 
-# Initialize directories and database on startup
-init_dirs()
-init_db()
+# --- Import Routers ---
+from backend.routers.auth_router import router as auth_router
+from backend.routers.ufw_router import router as ufw_router
+from backend.routers.fail2ban_router import router as f2b_router
+from backend.routers.logs_router import router as logs_router
+from backend.routers.admin_router import router as admin_router
+from backend.routers.reload_router import router as reload_router
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Initialize directories and database on startup
+    init_dirs()
+    init_db()
+    yield
+
 
 app = FastAPI(
     title="UFW-GUI API",
     description="Modern firewall management for Linux via Docker",
     version="1.5.6",
+    lifespan=lifespan,
 )
 
 # --- CORS Configuration ---
@@ -34,14 +49,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- Import and Register Routers ---
-from backend.routers.auth_router import router as auth_router
-from backend.routers.ufw_router import router as ufw_router
-from backend.routers.fail2ban_router import router as f2b_router
-from backend.routers.logs_router import router as logs_router
-from backend.routers.admin_router import router as admin_router
-from backend.routers.reload_router import router as reload_router
-
+# --- Register Routers ---
 app.include_router(auth_router)
 app.include_router(ufw_router)
 app.include_router(f2b_router)

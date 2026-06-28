@@ -4,6 +4,7 @@ Handles SQLite operations for drops and audit logs
 """
 import os
 import sqlite3
+import threading
 from datetime import datetime
 from backend.services.subprocess_service import run_fail2ban
 
@@ -36,7 +37,11 @@ def log_action(username: str, action: str, details: str):
     )
     conn.commit()
     conn.close()
-    _send_tg_alert(username, action, details)
+    threading.Thread(
+        target=_send_tg_alert,
+        args=(username, action, details),
+        daemon=True
+    ).start()
 
 
 def _send_tg_alert(username: str, action: str, details: str):
