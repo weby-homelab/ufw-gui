@@ -1,9 +1,9 @@
 fastapi==0.115.0
 uvicorn==0.32.0
-PyJWT==2.10.1
+PyJWT==2.13.0
 passlib[bcrypt]==1.7.4
 python-multipart==0.0.32
-requests==2.32.4
+requests==2.34.2
 python-dotenv==1.2.2
 bcrypt==4.2.0
 
