@@ -1,8 +1,8 @@
 <p align="center">
-  <a href="README_ENG.md">
+  <a href="README.md">
     <img src="https://img.shields.io/badge/🇬🇧_English-00D4FF?style=for-the-badge&logo=readme&logoColor=white" alt="English README">
   </a>
-  <a href="README.md">
+  <a href="README.ua.md">
     <img src="https://img.shields.io/badge/🇺🇦_Українська-FF4D00?style=for-the-badge&logo=readme&logoColor=white" alt="Українська версія">
   </a>
 </p>
@@ -10,13 +10,13 @@
 <br>
 
 # 🛡️ UFW-GUI (Docker Edition)
-*Сучасне, безпечне та естетичне керування мережевою безпекою Linux через Docker.*
+*Modern, secure, and aesthetic network security management for Linux via Docker.*
 
 [![Latest Release](https://img.shields.io/github/v/release/weby-homelab/ufw-gui)](https://github.com/weby-homelab/ufw-gui/releases/latest)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Docker Pulls](https://img.shields.io/docker/pulls/webyhomelab/ufw-gui)](https://hub.docker.com/r/webyhomelab/ufw-gui)
 
-**UFW-GUI** — це потужний веб-інтерфейс для керування системним брандмауером `UFW` та системою `Fail2Ban`. Проєкт створений для тих, хто цінує візуальний контроль та зручність, не втрачаючи при цьому в безпеці.
+**UFW-GUI** is a powerful web interface for managing the `UFW` system firewall and `Fail2Ban`. The project is designed for those who value visual control and convenience without compromising on security.
 
 ---
 
@@ -28,30 +28,30 @@
 
 ---
 
-## 🚀 Основні можливості
+## 🚀 Key Features
 
-### 🛠 Керування правилами
-- **Quick Rules:** Швидке додавання дозволів або заборон для портів та IP.
-- **Rule Management:** Перегляд та видалення активних правил в один клік.
-- **Test Mode:** Безпечне тестування правил на 60 секунд з автоматичним відкатом при втраті зв'язку.
+### 🛠 Rule Management
+- **Quick Rules:** Fast addition of allows or denies for ports and IPs.
+- **Rule Management:** View and delete active rules in one click.
+- **Test Mode:** Safely test rules for 60 seconds with automatic rollback if connection is lost.
 
-### 🔍 Аналітика та Моніторинг
-- **Live Drops:** Моніторинг відхилених пакетів у реальному часі.
-- **Attack Stats:** Графіки активності атак за останні 24 години (Recharts).
-- **Fail2Ban Integration:** Перегляд заблокованих IP та розбан в один клік.
+### 🔍 Analytics & Monitoring
+- **Live Drops:** Real-time monitoring of rejected packets.
+- **Attack Stats:** Attack activity graphs for the last 24 hours (Recharts).
+- **Fail2Ban Integration:** View blocked IPs and unban in one click.
 
-### 🛡 Безпека та Надійність
-- **Time Machine:** Автоматичне створення знімків конфігурації (Snapshots).
-- **Audit Logs:** Детальний журнал дій користувачів.
-- **Telegram Alerts:** Миттєві сповіщення про зміну правил у ваш Telegram.
+### 🛡 Security & Reliability
+- **Time Machine:** Automatic configuration snapshots.
+- **Audit Logs:** Detailed user action logs.
+- **Telegram Alerts:** Instant notifications of rule changes directly to your Telegram.
 
 ---
 
-## 🏗️ Архітектура системи
+## 🏗️ System Architecture
 
 ```mermaid
 graph TD
-    User((Адміністратор)) -->|HTTPS| Nginx[Nginx Container]
+    User((Administrator)) -->|HTTPS| Nginx[Nginx Container]
     Nginx -->|Proxy| UI[Frontend: React SPA]
     Nginx -->|API| API[Backend: FastAPI]
     
@@ -71,32 +71,32 @@ graph TD
 
 ---
 
-## 📦 Встановлення (Docker Compose)
+## 📦 Installation (Docker Compose)
 
-Найпростіший спосіб запустити **UFW-GUI** — використовувати `docker-compose.yml`:
+The easiest way to run **UFW-GUI** is using `docker-compose.yml`:
 
-1.  **Клонуйте репозиторій:**
+1.  **Clone the repository:**
     ```bash
     git clone https://github.com/weby-homelab/ufw-gui.git
     cd ufw-gui
     ```
 
-2.  **Налаштуйте середовище:**
-    Створіть файл `.env` на основі `backend/.env.example` та встановіть `UFW_GUI_SECRET_KEY`.
+2.  **Configure Environment:**
+    Create a `.env` file based on `backend/.env.example` and set `UFW_GUI_SECRET_KEY`.
 
-3.  **Запустіть контейнери:**
+3.  **Start Containers:**
     ```bash
     docker compose up -d
     ```
 
-Панель буде доступна на порті **8080** (або налаштованому у вашому Reverse Proxy).
+The dashboard will be available on port **80** (or as configured in your Nginx).
 
 ---
 
-## 📋 Системні вимоги
-- **ОС:** Ubuntu 22.04+, Debian 11+, AlmaLinux 9+.
-- **Залежності:** `docker`, `docker-compose`, `ufw`, `fail2ban`.
-- **Доступ:** Права `root` (privileged mode) для контейнера бекенду.
+## 📋 System Requirements
+- **OS:** Ubuntu 22.04+, Debian 11+, AlmaLinux 9+.
+- **Dependencies:** `docker`, `docker-compose`, `ufw`, `fail2ban`.
+- **Access:** `root` privileges (privileged mode) for the backend container.
 
 ---
 <br>
