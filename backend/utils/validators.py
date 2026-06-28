@@ -2,14 +2,21 @@
 UFW-GUI - Validation and sanitization utilities
 """
 import re
+import ipaddress
 
 
 def is_valid_ip(ip: str) -> bool:
     if not ip:
         return True
-    ipv4 = r"^(\d{1,3}\.){3}\d{1,3}(\/\d{1,2})?$"
-    ipv6 = r"^[0-9a-fA-F:]+(\/\d{1,3})?$"
-    return bool(re.match(ipv4, ip)) or bool(re.match(ipv6, ip))
+    try:
+        ipaddress.ip_address(ip)
+        return True
+    except ValueError:
+        try:
+            ipaddress.ip_network(ip, strict=False)
+            return True
+        except ValueError:
+            return False
 
 
 def is_valid_port(port: str) -> bool:

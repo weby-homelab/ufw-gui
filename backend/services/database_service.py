@@ -30,6 +30,10 @@ def init_db():
         CREATE TABLE IF NOT EXISTS audit_logs 
         (id INTEGER PRIMARY KEY, ts TIMESTAMP, username TEXT, action TEXT, details TEXT)
     """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS users 
+        (username TEXT PRIMARY KEY, password TEXT, role TEXT)
+    """)
     conn.commit()
     conn.close()
 
