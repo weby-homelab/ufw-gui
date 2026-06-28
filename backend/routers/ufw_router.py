@@ -18,7 +18,7 @@ router = APIRouter(prefix="/api", tags=["UFW"])
 @router.get("/status")
 async def get_status(user=Depends(get_current_user)):
     try:
-        status = run_ufw("status")
+        status = await run_ufw("status")
         return {"status": "running" if "Status: active" in status else "inactive"}
     except Exception:
         return {"status": "unknown"}
@@ -31,7 +31,7 @@ async def toggle_ufw(
 ):
     if action not in ["enable", "disable", "reload"]:
         raise HTTPException(status_code=400, detail="Invalid action")
-    res = run_ufw("--force", action)
+    res = await run_ufw("--force", action)
     log_action(user["username"], "TOGGLE_UFW", action)
     return {"result": res}
 
@@ -39,7 +39,7 @@ async def toggle_ufw(
 @router.get("/rules")
 async def get_rules(user=Depends(get_current_user)):
     try:
-        output = run_ufw("status", "numbered")
+        output = await run_ufw("status", "numbered")
         rules = []
         pattern = r"\[\s*(\d+)\]\s+(.*?)\s+(ALLOW IN|DENY IN|REJECT IN|ALLOW OUT|DENY OUT|ALLOW|DENY|REJECT)\s+(.*)"
         for line in output.split("\n"):
@@ -74,7 +74,7 @@ async def add_rule(
     if not is_valid_proto(proto):
         raise HTTPException(status_code=400, detail="Invalid Protocol")
 
-    create_snapshot("before_add_rule")
+    await create_snapshot("before_add_rule")
     args = [action]
     if ip:
         args.extend(["from", ip])
@@ -87,7 +87,7 @@ async def add_rule(
             target = port if not proto else f"{port}/{proto}"
             args.append(target)
 
-    res = run_ufw(*args)
+    res = await run_ufw(*args)
     log_action(user["username"], "ADD_RULE", f"Action: {action}, Target: {port}, IP: {ip}")
     return {"result": res}
 
@@ -96,8 +96,8 @@ async def add_rule(
 async def delete_rule(rule_id: str, user=Depends(get_current_user)):
     if not rule_id.isdigit():
         raise HTTPException(status_code=400, detail="Invalid ID")
-    create_snapshot("before_del_rule")
-    res = run_ufw("--force", "delete", rule_id)
+    await create_snapshot("before_del_rule")
+    res = await run_ufw("--force", "delete", rule_id)
     log_action(user["username"], "DELETE_RULE", f"ID: {rule_id}")
     return {"result": res}
 
@@ -107,16 +107,18 @@ async def ban_ip(
     ip: str = Body(..., embed=True),
     user=Depends(get_current_user),
 ):
+    if not ip:
+        raise HTTPException(status_code=400, detail="IP is required")
     if not is_valid_ip(ip):
         raise HTTPException(status_code=400, detail="Invalid IP format")
-    create_snapshot("before_ban")
-    res = run_ufw("insert", "1", "deny", "from", ip)
+    await create_snapshot("before_ban")
+    res = await run_ufw("insert", "1", "deny", "from", ip)
     log_action(user["username"], "BAN_IP", ip)
     return {"result": res}
 
 
 @router.post("/reload")
 async def reload_firewall(user=Depends(get_current_user)):
-    res = run_ufw("reload")
+    res = await run_ufw("reload")
     log_action(user["username"], "RELOAD", "System")
     return {"result": res}
