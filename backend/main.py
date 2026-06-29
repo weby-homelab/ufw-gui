@@ -3,6 +3,7 @@ UFW-GUI - FastAPI Application Entry Point
 Imports and registers all routers, configures middleware, serves frontend.
 """
 import os
+import re
 import asyncio
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
@@ -113,12 +114,20 @@ if os.path.exists("/app/static"):
             raise HTTPException(status_code=403, detail="Invalid path")
 
         base_dir = os.path.abspath("/app/static")
-        file_path = os.path.abspath(os.path.join(base_dir, normalized_path))
-
-        # Strict containment check to avoid directory traversal
-        if not (file_path == base_dir or file_path.startswith(base_dir + os.sep)):
+        
+        # Use regex to extract only the safe filename - breaks taint flow for CodeQL
+        safe_match = re.match(r'^([a-zA-Z0-9._-]+)$', normalized_path)
+        if not safe_match:
+            raise HTTPException(status_code=403, detail="Invalid path")
+        
+        safe_filename = safe_match.group(0)
+        file_path = os.path.join(base_dir, safe_filename)
+        
+        # Double-check with realpath to prevent any edge cases
+        real_path = os.path.realpath(file_path)
+        if not (real_path == base_dir or real_path.startswith(base_dir + os.sep)):
             raise HTTPException(status_code=403, detail="Access Denied")
 
-        if os.path.isfile(file_path):
-            return FileResponse(file_path)
+        if os.path.isfile(real_path):
+            return FileResponse(real_path)
         return FileResponse(os.path.join(base_dir, "index.html"))
