@@ -3,7 +3,6 @@ UFW-GUI - FastAPI Application Entry Point
 Imports and registers all routers, configures middleware, serves frontend.
 """
 import os
-import re
 import asyncio
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
@@ -23,6 +22,30 @@ from backend.routers.logs_router import router as logs_router
 from backend.routers.admin_router import router as admin_router
 from backend.routers.reload_router import router as reload_router
 import shutil
+
+# --- File Whitelist (breaks CodeQL taint flow) ---
+ALLOWED_FILES: dict[str, str] = {}
+
+
+def _build_file_whitelist():
+    """Build a whitelist of allowed static files at startup to break CodeQL taint flow.
+
+    User input is used ONLY as a dictionary key lookup. The actual file paths
+    originate from os.walk() at startup, never from composing user input into
+    a path expression. This completely severs the taint chain.
+    """
+    base = "/app/static"
+    if not os.path.exists(base):
+        return
+    real_base = os.path.realpath(base)
+    for root, _dirs, files in os.walk(real_base):
+        for fname in files:
+            full = os.path.join(root, fname)
+            rel = os.path.relpath(full, real_base)
+            ALLOWED_FILES[rel] = full
+
+
+_build_file_whitelist()
 
 
 async def check_and_rollback_on_startup():
@@ -49,14 +72,14 @@ async def lifespan(app: FastAPI):
     # Initialize directories and database on startup
     init_dirs()
     init_db()
-    
+
     # Check for interrupted test and roll back if needed
     await check_and_rollback_on_startup()
-    
+
     # Start background log parser for statistics
     parser_task = asyncio.create_task(start_log_parser())
     yield
-    
+
     # Clean up parser task on shutdown
     parser_task.cancel()
     try:
@@ -108,26 +131,16 @@ if os.path.exists("/app/static"):
         if full_path.startswith("api/"):
             raise HTTPException(status_code=404)
 
-        # Normalize path and prevent any relative directory traversal
-        normalized_path = os.path.normpath(full_path)
-        if normalized_path.startswith("..") or normalized_path.startswith("/"):
-            raise HTTPException(status_code=403, detail="Invalid path")
+        # Strip leading slash to get relative path for whitelist lookup.
+        # User input is used ONLY as a dict key — it never composes into
+        # a file path expression, which completely breaks CodeQL taint flow.
+        rel_path = full_path.lstrip("/")
 
-        base_dir = os.path.abspath("/app/static")
-        
-        # Use regex to extract only the safe filename - breaks taint flow for CodeQL
-        safe_match = re.match(r'^([a-zA-Z0-9._-]+)$', normalized_path)
-        if not safe_match:
-            raise HTTPException(status_code=403, detail="Invalid path")
-        
-        safe_filename = safe_match.group(0)
-        file_path = os.path.join(base_dir, safe_filename)
-        
-        # Double-check with realpath to prevent any edge cases
-        real_path = os.path.realpath(file_path)
-        if not (real_path == base_dir or real_path.startswith(base_dir + os.sep)):
-            raise HTTPException(status_code=403, detail="Access Denied")
+        if rel_path in ALLOWED_FILES:
+            return FileResponse(ALLOWED_FILES[rel_path])
 
-        if os.path.isfile(real_path):
-            return FileResponse(real_path)
-        return FileResponse(os.path.join(base_dir, "index.html"))
+        # SPA fallback: serve index.html for any unmatched route
+        index_path = os.path.join("/app/static", "index.html")
+        if os.path.isfile(index_path):
+            return FileResponse(index_path)
+        raise HTTPException(status_code=404, detail="Not found")

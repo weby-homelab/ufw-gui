@@ -5,7 +5,7 @@ on:
     types: [published]
   push:
     tags:
-      - '"'"'v*'"'"'
+      - 'v*'
 
 jobs:
   push_to_registry:
@@ -38,8 +38,8 @@ jobs:
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern=v{{version}}
-            type=raw,value=latest,enable=${{ github.event_name == '"'"'release'"'"' || startsWith(github.ref, '"'"'refs/tags/v'"'"') }}
-            type=raw,value=main,enable=${{ github.ref == '"'"'refs/heads/main'"'"' }}
+            type=raw,value=latest,enable=${{ github.event_name == 'release' || startsWith(github.ref, 'refs/tags/v') }}
+            type=raw,value=main,enable=${{ github.ref == 'refs/heads/main' }}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
