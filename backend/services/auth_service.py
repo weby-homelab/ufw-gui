@@ -9,7 +9,7 @@ import jwt
 from jwt.exceptions import PyJWTError as JWTError
 from passlib.context import CryptContext
 from fastapi import HTTPException, Depends
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi.security import OAuth2PasswordBearer
 
 SECRET_KEY = os.getenv("UFW_GUI_SECRET_KEY")
 if not SECRET_KEY:

@@ -8,7 +8,6 @@ import sqlite3
 import logging
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
-from backend.services.subprocess_service import run_fail2ban
 
 logger = logging.getLogger(__name__)
 
