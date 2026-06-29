@@ -21,9 +21,9 @@
 ---
 
 <p align="center">
-  <img src="ufw-gui-1.png" alt="UFW-GUI Dashboard" width="800">
+  <img src="docs/screenshots/ufw-gui-1.png" alt="UFW-GUI Dashboard" width="800">
   <br><br>
-  <img src="ufw-gui-2.png" alt="UFW-GUI Analytics" width="800">
+  <img src="docs/screenshots/ufw-gui-2.png" alt="UFW-GUI Analytics" width="800">
 </p>
 
 ---

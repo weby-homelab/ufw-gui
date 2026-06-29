@@ -27,25 +27,39 @@ async def start_log_parser():
 
     # Seek to end on startup to only parse new logs
     try:
-        file_size = os.path.getsize(log_path)
-        offset = file_size
+        stat = os.stat(log_path)
+        offset = stat.st_size
+        inode = stat.st_ino
     except Exception:
         offset = 0
+        inode = None
 
     while True:
         try:
             await asyncio.sleep(5)
             if not os.path.exists(log_path):
+                inode = None
                 continue
 
-            curr_size = os.path.getsize(log_path)
-            if curr_size < offset:
-                # Log rotation occurred
+            try:
+                stat = os.stat(log_path)
+                curr_size = stat.st_size
+                curr_inode = stat.st_ino
+            except FileNotFoundError:
+                inode = None
+                continue
+
+            # Detect log rotation: inode changed or size decreased
+            if inode is not None and (curr_inode != inode or curr_size < offset):
+                import logging
+                logging.info("Log rotation detected. Resetting offset.")
                 offset = 0
+                inode = curr_inode
 
             if curr_size > offset:
                 await parse_logs_range(log_path, offset, curr_size)
                 offset = curr_size
+                inode = curr_inode
         except asyncio.CancelledError:
             break
         except Exception as e:
