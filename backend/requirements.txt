@@ -8,5 +8,5 @@ python-dotenv==1.2.2
 bcrypt==4.2.0
 slowapi==0.1.9
 alembic==1.13.1
-python-jose[cryptography]==0.6.0
+python-jose[cryptography]==0.6.2
 
