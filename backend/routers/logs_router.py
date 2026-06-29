@@ -4,11 +4,9 @@ UFW-GUI - Logs and statistics router
 from fastapi import APIRouter, Depends
 import re
 import os
-from datetime import datetime
 
 from backend.services.auth_service import get_current_user
-from backend.services.database_service import log_action, get_recent_drops, get_stats_last_24h
-from backend.services.filesystem_service import load_config
+from backend.services.database_service import get_stats_last_24h
 
 router = APIRouter(prefix="/api", tags=["Logs"])
 

@@ -2,12 +2,10 @@
 UFW-GUI - UFW firewall router
 """
 from fastapi import APIRouter, Body, Depends, HTTPException
-from typing import Literal
-from datetime import datetime
 import re
 
 from backend.services.auth_service import get_current_user
-from backend.services.subprocess_service import run_ufw, run_fail2ban
+from backend.services.subprocess_service import run_ufw
 from backend.services.filesystem_service import create_snapshot
 from backend.services.database_service import log_action
 from backend.utils.validators import is_valid_ip, is_valid_port, is_valid_proto

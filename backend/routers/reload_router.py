@@ -19,7 +19,6 @@ from backend.services.filesystem_service import (
     clear_test_state,
 )
 from backend.services.database_service import log_action
-from backend.utils.validators import validate_args
 
 router = APIRouter(prefix="/api/reload", tags=["Test Mode"])
 
