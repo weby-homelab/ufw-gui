@@ -10,6 +10,13 @@ export default defineConfig({
     __APP_VERSION__: JSON.stringify(packageJson.version),
   },
   server: {
+    allowedHosts: ["_all_"],
+    proxy: {
+      "/api": "http://localhost:8000"
+    }
+  },
+  preview: {
+    allowedHosts: ["_all_"],
     proxy: {
       "/api": "http://localhost:8000"
     }

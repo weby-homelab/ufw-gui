@@ -6,4 +6,6 @@ python-multipart==0.0.32
 requests==2.34.2
 python-dotenv==1.2.2
 bcrypt==4.2.0
+slowapi==0.1.9
+alembic==1.13.1
 

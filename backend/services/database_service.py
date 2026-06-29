@@ -8,7 +8,6 @@ import sqlite3
 import logging
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
-from backend.services.subprocess_service import run_fail2ban
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +21,9 @@ _tg_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="tg_alerts")
 def init_db():
     os.makedirs(DATA_DIR, exist_ok=True)
     conn = sqlite3.connect(DB_FILE)
+    conn.execute("PRAGMA journal_mode=WAL;")
+    conn.execute("PRAGMA synchronous=NORMAL;")
+    conn.execute("PRAGMA cache_size=-8000;")
     conn.execute("""
         CREATE TABLE IF NOT EXISTS drops 
         (id INTEGER PRIMARY KEY, ts TIMESTAMP, src TEXT, proto TEXT, port TEXT, 
