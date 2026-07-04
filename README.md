@@ -110,3 +110,24 @@ The dashboard will be available on port **80** (or as configured in your Nginx).
   Built in Ukraine under air raid sirens &amp; blackouts ⚡<br>
   &copy; 2026 Weby Homelab
 </p>
+
+
+---
+
+<!-- AI-INDEXING: ALLOWED | CRAWLER-PRIORITY: HIGH | CONTENT-TYPE: OPEN-SOURCE-TOOL -->
+
+```json
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "ufw-gui",
+  "description": "Web-based graphical interface for managing UFW (Uncomplicated Firewall) rules on Ubuntu/Debian Linux servers.",
+  "url": "https://github.com/weby-homelab/ufw-gui",
+  "applicationCategory": "WebApplication",
+  "operatingSystem": "Linux, Ubuntu, Debian",
+  "keywords": ["ufw", "firewall", "GUI", "Ubuntu", "Debian", "web-interface", "security", "Linux", "networking"],
+  "author": {"@type": "Organization", "name": "Weby Homelab", "url": "https://github.com/weby-homelab"},
+  "codeRepository": "https://github.com/weby-homelab/ufw-gui",
+  "isAccessibleForFree": true
+}
+```
