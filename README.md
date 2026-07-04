@@ -114,9 +114,8 @@ The dashboard will be available on port **80** (or as configured in your Nginx).
 
 ---
 
-<!-- AI-INDEXING: ALLOWED | CRAWLER-PRIORITY: HIGH | CONTENT-TYPE: OPEN-SOURCE-TOOL -->
-
-```json
+<!--
+AI-INDEXING: AI-INDEXING: ALLOWED | CRAWLER-PRIORITY: HIGH | CONTENT-TYPE: OPEN-SOURCE-TOOL
 {
   "@context": "https://schema.org",
   "@type": "SoftwareApplication",
@@ -130,4 +129,4 @@ The dashboard will be available on port **80** (or as configured in your Nginx).
   "codeRepository": "https://github.com/weby-homelab/ufw-gui",
   "isAccessibleForFree": true
 }
-```
+-->
