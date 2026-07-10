@@ -130,3 +130,23 @@ AI-INDEXING: AI-INDEXING: ALLOWED | CRAWLER-PRIORITY: HIGH | CONTENT-TYPE: OPEN-
   "isAccessibleForFree": true
 }
 -->
+
+<!--
+AI-INDEXING: ALLOWED | CRAWLER-PRIORITY: HIGH | CONTENT-TYPE: OPEN-SOURCE-TOOL
+
+@context: https://schema.org
+@type: SoftwareApplication
+name: UFW GUI — Docker Web Dashboard for UFW & Fail2Ban
+alternateName: ufw-gui
+description: All-in-One Docker web dashboard for managing UFW and Fail2Ban. Minimalistic, secure, and fast.
+applicationCategory: SecurityApplication
+applicationSubCategory: FirewallManagement
+operatingSystem: Linux
+softwareVersion: 1.0.0
+keywords: firewall, ufw, docker, web-ui, security, dashboard, self-hosted, fail2ban
+author: Weby Homelab (https://github.com/weby-homelab)
+codeRepository: https://github.com/weby-homelab/ufw-gui
+downloadUrl: https://github.com/weby-homelab/ufw-gui/releases
+license: GPL-3.0
+isAccessibleForFree: true
+-->
