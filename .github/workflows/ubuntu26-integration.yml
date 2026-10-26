@@ -20,6 +20,7 @@ jobs:
           sudo ufw default allow incoming
           sudo ufw default allow outgoing
           sudo ufw --force enable
+          sudo ufw allow 49151/tcp
           sudo ufw status verbose
       - name: Build image
         run: docker build -t ufw-gui-ci .
@@ -35,10 +36,15 @@ jobs:
           curl -fsS -H 'Content-Type: application/json' -d '{"username":"ciadmin","password":"temporary-test-password"}' "$base/api/auth/setup"
           test "$(curl -s -o /dev/null -w '%{http_code}' -d 'username=ciadmin&password=wrong' "$base/api/auth/login")" = 401
           token=$(curl -fsS -d 'username=ciadmin&password=temporary-test-password' "$base/api/auth/login" | python3 -c 'import json,sys; print(json.load(sys.stdin)["access_token"])')
-          curl -fsS -H "Authorization: Bearer $token" "$base/api/status"
+          curl -fsS -H "Authorization: Bearer $token" "$base/api/status" | python3 -c 'import json,sys; assert json.load(sys.stdin)["status"] == "running"'
+          curl -fsS -H "Authorization: Bearer $token" "$base/api/rules" | python3 -c 'import json,sys; d=json.load(sys.stdin); assert any("49151/tcp" in r["to"] for r in d["rules"]), d'
           curl -fsS -H "Authorization: Bearer $token" -H 'Content-Type: application/json' -d '{"action":"allow","port":"49152","proto":"tcp","ip":""}' "$base/api/rule"
           sudo ufw status numbered | tee /tmp/ufw-ci-status
           grep -q '49152/tcp' /tmp/ufw-ci-status
-          curl -fsS -H "Authorization: Bearer $token" "$base/api/rules" | python3 -c 'import json,sys; d=json.load(sys.stdin); assert any("49152/tcp" in r["to"] for r in d["rules"]), d'
+          rule_id=$(curl -fsS -H "Authorization: Bearer $token" "$base/api/rules" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(next(r["id"] for r in d["rules"] if "49152/tcp" in r["to"]))')
+          curl -fsS -X DELETE -H "Authorization: Bearer $token" "$base/api/rule/$rule_id"
+          sudo ufw status numbered | tee /tmp/ufw-ci-after-delete
+          ! grep -q "49152/tcp" /tmp/ufw-ci-after-delete
+          grep -q "49151/tcp" /tmp/ufw-ci-after-delete
       - if: always()
         run: docker logs ufw-gui-ci || true
