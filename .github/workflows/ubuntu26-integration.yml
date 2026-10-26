@@ -1,0 +1,44 @@
+name: Ubuntu 26 Docker and host UFW integration
+on:
+  pull_request:
+  push:
+    branches: [fix/release-preserve-docker-tags]
+permissions:
+  contents: read
+jobs:
+  host-ufw:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Prepare disposable host
+        run: |
+          cat /etc/os-release
+          docker version
+          sudo apt-get update
+          sudo apt-get install -y ufw
+          sudo ufw default allow incoming
+          sudo ufw default allow outgoing
+          sudo ufw --force enable
+          sudo ufw status verbose
+      - name: Build image
+        run: docker build -t ufw-gui-ci .
+      - name: Start application against host firewall
+        run: |
+          docker run -d --name ufw-gui-ci --network host --cap-add NET_ADMIN --cap-add DAC_OVERRIDE --cap-add FOWNER --cap-add SETUID --cap-add SETGID -e PORT=18081 -e UFW_GUI_SECRET_KEY=temporary-ci-only-secret-key-123456789 -v /etc/ufw:/etc/ufw ufw-gui-ci
+          for i in $(seq 1 60); do curl -fsS http://127.0.0.1:18081/api/health && exit 0; sleep 2; done
+          exit 1
+      - name: Verify authentication and host rule round trip
+        run: |
+          set -eu
+          base=http://127.0.0.1:18081
+          curl -fsS -H 'Content-Type: application/json' -d '{"username":"ciadmin","password":"temporary-test-password"}' "$base/api/auth/setup"
+          test "$(curl -s -o /dev/null -w '%{http_code}' -d 'username=ciadmin&password=wrong' "$base/api/auth/login")" = 401
+          token=$(curl -fsS -d 'username=ciadmin&password=temporary-test-password' "$base/api/auth/login" | python3 -c 'import json,sys; print(json.load(sys.stdin)["access_token"])')
+          curl -fsS -H "Authorization: Bearer $token" "$base/api/status"
+          curl -fsS -H "Authorization: Bearer $token" -H 'Content-Type: application/json' -d '{"action":"allow","port":"49152","proto":"tcp","ip":""}' "$base/api/rule"
+          sudo ufw status numbered | tee /tmp/ufw-ci-status
+          grep -q '49152/tcp' /tmp/ufw-ci-status
+          curl -fsS -H "Authorization: Bearer $token" "$base/api/rules" | python3 -c 'import json,sys; d=json.load(sys.stdin); assert any("49152/tcp" in r["to"] for r in d["rules"]), d'
+      - if: always()
+        run: docker logs ufw-gui-ci || true
