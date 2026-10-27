@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import ast
 import json
+import os
 import re
 import sys
 from pathlib import Path
 
 VERSION_PATTERN = re.compile(r"(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)")
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = Path(
+    os.environ.get("UFW_GUI_PROJECT_ROOT", Path(__file__).resolve().parents[1])
+).resolve()
 
 
 class VersionConsistencyError(ValueError):
