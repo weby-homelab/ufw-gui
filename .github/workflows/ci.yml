@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 jobs:
-  backend-lint:
+  backend-ruff:
     runs-on: ubuntu-latest
     steps:
       - name: Check out the repo
@@ -67,6 +67,17 @@ jobs:
 
       - name: Check Python Compilation
         run: python -m py_compile backend/*.py backend/*/*.py
+
+  # Preserve the existing required-check context while reporting the three
+  # independent results. A failed or skipped dependency must fail this gate.
+  backend-lint:
+    if: ${{ always() }}
+    needs: [backend-ruff, backend-tests, backend-compile]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require all backend checks
+        if: ${{ needs.backend-ruff.result != 'success' || needs.backend-tests.result != 'success' || needs.backend-compile.result != 'success' }}
+        run: exit 1
 
   frontend-build:
     runs-on: ubuntu-latest
