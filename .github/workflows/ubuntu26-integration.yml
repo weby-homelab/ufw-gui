@@ -56,16 +56,38 @@ jobs:
         run: |
           set -eu
           export UFW_GUI_SECRET_KEY="$(python3 -c 'import secrets; print(secrets.token_urlsafe(48))')"
-          docker run -d --name ufw-gui-ci --network host --cap-add NET_ADMIN --cap-add DAC_OVERRIDE --cap-add FOWNER --cap-add SETUID --cap-add SETGID -e PORT=18081 --env UFW_GUI_SECRET_KEY -v "$RUNNER_TEMP/ufw-gui-data:/app/data" -v /etc/ufw:/etc/ufw ufw-gui-ci
+          export UFW_GUI_SETUP_TOKEN="$(python3 -c 'import secrets; print(secrets.token_urlsafe(48))')"
+          echo "::add-mask::$UFW_GUI_SECRET_KEY"
+          echo "::add-mask::$UFW_GUI_SETUP_TOKEN"
+          run_with_setup_token() {
+            docker run -d --name ufw-gui-ci --network host --cap-add NET_ADMIN --cap-add DAC_OVERRIDE --cap-add FOWNER --cap-add SETUID --cap-add SETGID -e PORT=18081 -e FORWARDED_ALLOW_IPS=127.0.0.1 --env UFW_GUI_SECRET_KEY --env UFW_GUI_SETUP_TOKEN -v "$RUNNER_TEMP/ufw-gui-data:/app/data" -v /etc/ufw:/etc/ufw ufw-gui-ci
+          }
+          run_without_setup_token() {
+            docker run -d --name ufw-gui-ci --network host --cap-add NET_ADMIN --cap-add DAC_OVERRIDE --cap-add FOWNER --cap-add SETUID --cap-add SETGID -e PORT=18081 -e FORWARDED_ALLOW_IPS=127.0.0.1 --env UFW_GUI_SECRET_KEY -v "$RUNNER_TEMP/ufw-gui-data:/app/data" -v /etc/ufw:/etc/ufw ufw-gui-ci
+          }
+          wait_for_health() {
+            for i in $(seq 1 60); do
+              if curl -fsS http://127.0.0.1:18081/api/health >/dev/null; then return 0; fi
+              sleep 2
+            done
+            return 1
+          }
+          run_with_setup_token
+          wait_for_health
+          setup_payload=$(python3 -c 'import json,os; print(json.dumps({"username":"ciadmin","password":"temporary-test-password","setup_token":os.environ["UFW_GUI_SETUP_TOKEN"]}))')
+          # The app trusts only loopback proxy headers in this disposable runner.
+          curl -fsS -H 'X-Forwarded-Proto: https' -H 'Content-Type: application/json' --data-binary "$setup_payload" http://127.0.0.1:18081/api/auth/setup
+          unset setup_payload UFW_GUI_SETUP_TOKEN
+          docker rm -f ufw-gui-ci >/dev/null
+          run_without_setup_token
           unset UFW_GUI_SECRET_KEY
-          for i in $(seq 1 60); do curl -fsS http://127.0.0.1:18081/api/health && exit 0; sleep 2; done
-          exit 1
+          wait_for_health
       - name: Verify authentication and host rule round trip
         run: |
           set -eu
           base=http://127.0.0.1:18081
           for endpoint in \
-            'GET /api/status' 'GET /api/rules' 'POST /api/toggle' 'POST /api/rule' \
+            'GET /api/status' 'GET /api/diagnostics' 'GET /api/rules' 'POST /api/toggle' 'POST /api/rule' \
             'DELETE /api/rule/1' 'POST /api/ban' 'POST /api/reload' \
             'GET /api/auth/me' 'GET /api/audit-logs' 'GET /api/users' \
             'POST /api/users' 'DELETE /api/users/test' 'GET /api/settings' \
@@ -77,10 +99,15 @@ jobs:
             status=$(curl -s -o /dev/null -w '%{http_code}' -X "$method" -H 'Content-Type: application/json' -d '{}' "$base$path")
             test "$status" = 401 || { echo "Unexpected unauthenticated response: $method $path -> $status"; exit 1; }
           done
-          curl -fsS -H 'Content-Type: application/json' -d '{"username":"ciadmin","password":"temporary-test-password"}' "$base/api/auth/setup"
+          if docker exec ufw-gui-ci printenv UFW_GUI_SETUP_TOKEN >/dev/null 2>&1; then
+            echo "Setup token unexpectedly remained available after admin setup" >&2
+            exit 1
+          fi
           test "$(curl -s -o /dev/null -w '%{http_code}' -d 'username=ciadmin&password=wrong' "$base/api/auth/login")" = 401
           token=$(curl -fsS -d 'username=ciadmin&password=temporary-test-password' "$base/api/auth/login" | python3 -c 'import json,sys; print(json.load(sys.stdin)["access_token"])')
           curl -fsS -H "Authorization: Bearer $token" "$base/api/auth/me" | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["username"] == "ciadmin" and d["role"] == "superadmin"'
+          diagnostics=$(curl -fsS -H "Authorization: Bearer $token" "$base/api/diagnostics")
+          python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["ufw"]["binary_present"] and d["ufw"]["config_dir_mountpoint"] and d["ufw"]["net_admin_available"], d; assert not {"ufw_binary_missing","ufw_config_missing","ufw_config_not_mountpoint","net_admin_missing"}.intersection(d["hint_codes"]), d' <<<"$diagnostics"
           curl -fsS -H "Authorization: Bearer $token" "$base/api/users" | python3 -c 'import json,sys; d=json.load(sys.stdin); assert "ciadmin" in str(d)'
           test "$(curl -s -o /tmp/test-mode-response -w '%{http_code}' -X POST -H "Authorization: Bearer $token" "$base/api/reload/test")" = 503
           python3 -c 'import json; assert "rollback" in json.load(open("/tmp/test-mode-response"))["detail"]'
