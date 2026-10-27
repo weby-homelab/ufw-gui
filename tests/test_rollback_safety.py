@@ -104,6 +104,8 @@ class RollbackSafetyTests(unittest.TestCase):
             self.assertFalse(os.path.lexists(marker))
 
 
+
+
 class RecoveryMarkerTests(unittest.TestCase):
     def test_missing_marker_is_the_only_unresolved_false_case(self):
         with tempfile.TemporaryDirectory() as directory:
