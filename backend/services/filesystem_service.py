@@ -2,6 +2,7 @@
 UFW-GUI - Filesystem service
 Handles snapshot management, users, and configuration files
 """
+
 import asyncio
 import json
 import os
@@ -24,6 +25,7 @@ def init_dirs():
 
 # --- Users ---
 
+
 def load_users() -> dict:
     db_path = os.path.join(DATA_DIR, "stats.db")
     if not os.path.exists(db_path):
@@ -34,14 +36,13 @@ def load_users() -> dict:
     if os.path.exists(USER_DATA_FILE):
         with open(USER_DATA_FILE, "r", encoding="utf-8") as source:
             legacy_users = json.load(source)
-        with closing(sqlite3.connect(db_path)) as conn:
-            with conn:
-                conn.execute("BEGIN IMMEDIATE")
-                for username, data in legacy_users.items():
-                    conn.execute(
-                        "INSERT OR IGNORE INTO users (username, password, role) VALUES (?, ?, ?)",
-                        (username, data["password"], data.get("role", "admin")),
-                    )
+        with closing(sqlite3.connect(db_path)) as conn, conn:
+            conn.execute("BEGIN IMMEDIATE")
+            for username, data in legacy_users.items():
+                conn.execute(
+                    "INSERT OR IGNORE INTO users (username, password, role) VALUES (?, ?, ?)",
+                    (username, data["password"], data.get("role", "admin")),
+                )
         os.remove(USER_DATA_FILE)
 
     # Explicitly close connections even if reading fails.
@@ -84,7 +85,7 @@ def save_users(users: dict):
         for username, data in users.items():
             conn.execute(
                 "INSERT INTO users (username, password, role) VALUES (?, ?, ?)",
-                (username, data["password"], data.get("role", "admin"))
+                (username, data["password"], data.get("role", "admin")),
             )
         conn.commit()
     except Exception:
@@ -95,6 +96,7 @@ def save_users(users: dict):
 
 
 # --- Config ---
+
 
 def load_config() -> dict:
     if not os.path.exists(CONFIG_FILE):
@@ -110,7 +112,7 @@ def save_config(data: dict):
     os.makedirs(DATA_DIR, exist_ok=True)
     fd, temp_path = tempfile.mkstemp(dir=DATA_DIR, prefix="config_", suffix=".tmp")
     try:
-        with os.fdopen(fd, 'w') as f:
+        with os.fdopen(fd, "w") as f:
             json.dump(data, f)
         os.replace(temp_path, CONFIG_FILE)
     except Exception:
@@ -121,12 +123,15 @@ def save_config(data: dict):
 
 # --- Snapshots ---
 
+
 async def create_snapshot(label: str = "auto") -> str:
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     safe_label = "".join([c if c.isalnum() else "_" for c in label])
     snap_path = os.path.join(UFW_BACKUP_DIR, f"snap_{ts}_{safe_label}")
     if os.path.exists("/etc/ufw"):
-        await asyncio.to_thread(shutil.copytree, "/etc/ufw", snap_path, dirs_exist_ok=True)
+        await asyncio.to_thread(
+            shutil.copytree, "/etc/ufw", snap_path, dirs_exist_ok=True
+        )
     return ts
 
 
@@ -171,7 +176,9 @@ async def save_test_rollback():
             await asyncio.to_thread(os.remove, fallback_path)
 
     if os.path.exists("/etc/ufw"):
-        await asyncio.to_thread(shutil.copytree, "/etc/ufw", fallback_path, dirs_exist_ok=True)
+        await asyncio.to_thread(
+            shutil.copytree, "/etc/ufw", fallback_path, dirs_exist_ok=True
+        )
 
 
 # --- Test State ---
@@ -190,7 +197,9 @@ def get_test_state() -> dict:
             raise RuntimeError("Recovery marker is a dangling symlink") from None
         return {}
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
-        raise RuntimeError("Cannot read recovery marker; manual recovery may be required") from exc
+        raise RuntimeError(
+            "Cannot read recovery marker; manual recovery may be required"
+        ) from exc
     if not isinstance(state, dict) or state.get("status") != "testing":
         raise RuntimeError("Invalid recovery marker; manual recovery may be required")
     return state
@@ -200,7 +209,7 @@ def save_test_state(state: dict):
     os.makedirs(DATA_DIR, exist_ok=True)
     fd, temp_path = tempfile.mkstemp(dir=DATA_DIR, prefix="test_state_", suffix=".tmp")
     try:
-        with os.fdopen(fd, 'w') as f:
+        with os.fdopen(fd, "w") as f:
             json.dump(state, f)
         os.replace(temp_path, TEST_STATE_FILE)
     except Exception:

@@ -1,6 +1,7 @@
 """
 UFW-GUI - Validation and sanitization utilities
 """
+
 import ipaddress
 import re
 
@@ -29,10 +30,7 @@ def is_valid_port(port: str) -> bool:
         val = int(p)
         if val < 1 or val > 65535:
             return False
-    if len(parts) == 2:
-        if int(parts[0]) > int(parts[1]):
-            return False
-    return True
+    return len(parts) != 2 or int(parts[0]) <= int(parts[1])
 
 
 def is_valid_proto(proto: str) -> bool:
