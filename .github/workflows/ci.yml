@@ -23,8 +23,13 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install ruff
+          pip install ruff==0.17.2
           if [ -f backend/requirements.txt ]; then pip install -r backend/requirements.txt; fi
+
+      - name: Show Ruff configuration
+        run: |
+          ruff --version
+          ruff check --show-settings backend/main.py
 
       - name: Lint with Ruff
         run: ruff check backend/
