@@ -1,5 +1,6 @@
 """Authentication setup must fail closed when user data cannot be read."""
 import asyncio
+import concurrent.futures
 import os
 import sqlite3
 import tempfile
@@ -46,10 +47,25 @@ class AuthFailureTests(unittest.TestCase):
 
     def test_setup_does_not_write_when_users_cannot_be_read(self):
         with patch.object(auth_router, "load_users", side_effect=RuntimeError("read failed")):
-            with patch.object(auth_router, "save_users") as save:
+            with patch.object(auth_router, "create_initial_admin") as save:
                 with self.assertRaises(RuntimeError):
                     asyncio.run(auth_router.setup_admin(username="admin", password="pw"))
                 save.assert_not_called()
+
+
+    def test_concurrent_setup_cannot_replace_existing_admin(self):
+        with sqlite3.connect(self.root / "stats.db") as db:
+            db.execute("CREATE TABLE users (username TEXT PRIMARY KEY, password TEXT, role TEXT)")
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+            results = list(pool.map(lambda name: storage.create_initial_admin(name, "hash"), ["one", "two"]))
+        self.assertEqual(sorted(results), [False, True])
+        with sqlite3.connect(self.root / "stats.db") as db:
+            rows = db.execute("SELECT username, role FROM users").fetchall()
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0][1], "superadmin")
+        self.assertFalse(storage.create_initial_admin("third", "hash"))
+        with sqlite3.connect(self.root / "stats.db") as db:
+            self.assertEqual(db.execute("SELECT username, role FROM users").fetchall(), rows)
 
 
 if __name__ == "__main__":

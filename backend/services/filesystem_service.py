@@ -57,6 +57,30 @@ def load_users() -> dict:
         raise
 
 
+def create_initial_admin(username: str, password_hash: str) -> bool:
+    """Create the first admin atomically; never overwrite existing accounts."""
+    db_path = os.path.join(DATA_DIR, "stats.db")
+    if not os.path.exists(db_path):
+        raise RuntimeError("User database is unavailable")
+    conn = sqlite3.connect(db_path)
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        if conn.execute("SELECT 1 FROM users LIMIT 1").fetchone():
+            conn.rollback()
+            return False
+        conn.execute(
+            "INSERT INTO users (username, password, role) VALUES (?, ?, ?)",
+            (username, password_hash, "superadmin"),
+        )
+        conn.commit()
+        return True
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
 def save_users(users: dict):
     DB_FILE = f"{DATA_DIR}/stats.db"
     conn = sqlite3.connect(DB_FILE)

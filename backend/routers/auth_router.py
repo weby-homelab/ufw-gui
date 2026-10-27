@@ -12,7 +12,7 @@ from backend.services.auth_service import (
     verify_password,
 )
 from backend.services.database_service import log_action
-from backend.services.filesystem_service import load_users, save_users
+from backend.services.filesystem_service import create_initial_admin, load_users
 from backend.utils.validators import is_valid_username
 
 router = APIRouter(prefix="/api/auth", tags=["Auth"])
@@ -36,8 +36,8 @@ async def setup_admin(
     if not is_valid_username(username):
         raise HTTPException(status_code=400, detail="Invalid username format")
 
-    users[username] = {"password": hash_password(password), "role": "superadmin"}
-    save_users(users)
+    if not create_initial_admin(username, hash_password(password)):
+        raise HTTPException(status_code=400, detail="Admin already exists")
     log_action(username, "SETUP", "Superadmin created")
     return {"status": "success"}
 
