@@ -38,6 +38,8 @@ class AuthFailureTests(unittest.TestCase):
             storage.load_users()
 
     def test_corrupt_legacy_users_does_not_allow_setup(self):
+        with sqlite3.connect(self.root / "stats.db") as db:
+            db.execute("CREATE TABLE users (username TEXT, password TEXT, role TEXT)")
         (self.root / "users.json").write_text("{", encoding="utf-8")
         with self.assertRaises(ValueError):
             storage.load_users()
