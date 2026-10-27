@@ -31,6 +31,11 @@ jobs:
           ruff --version
           ruff check --show-settings backend/main.py
 
+      - name: Test authentication failure handling
+        env:
+          UFW_GUI_SECRET_KEY: temporary-ci-only-secret-key-123456789
+        run: python -m unittest discover -s tests -p 'test_auth_fail_closed.py' -v
+
       - name: Lint with Ruff
         run: ruff check backend/
 

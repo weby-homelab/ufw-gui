@@ -41,10 +41,11 @@ def load_users() -> dict:
             conn.close()
             os.remove(USER_DATA_FILE)
         except Exception:
-            pass
+            # A failed migration must not be mistaken for an unconfigured install.
+            raise
 
     if not os.path.exists(DB_FILE):
-        return {}
+        raise RuntimeError("User database is unavailable")
     try:
         conn = sqlite3.connect(DB_FILE)
         conn.row_factory = sqlite3.Row
@@ -52,7 +53,8 @@ def load_users() -> dict:
         conn.close()
         return {r["username"]: {"password": r["password"], "role": r["role"]} for r in rows}
     except Exception:
-        return {}
+        # Propagate failures so setup cannot proceed as though no users exist.
+        raise
 
 
 def save_users(users: dict):
