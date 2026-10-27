@@ -28,6 +28,7 @@ class SystemDiagnosticsTests(unittest.TestCase):
         self.assertTrue(result["ufw"]["config_dir_mounted"])
         self.assertTrue(result["fail2ban"]["socket_present"])
         self.assertEqual(result["hints"], [])
+        self.assertEqual(result["hint_codes"], [])
 
     def test_missing_everything_reports_actionable_hints(self):
         result = collect(which=None, isdir=False, ismount=False, exists=False)
@@ -39,6 +40,14 @@ class SystemDiagnosticsTests(unittest.TestCase):
         self.assertIn("ufw binary is missing", hints)
         self.assertIn("/etc/ufw", hints)
         self.assertIn("Fail2Ban socket", hints)
+        self.assertEqual(
+            result["hint_codes"],
+            [
+                "ufw_binary_missing",
+                "ufw_config_missing",
+                "fail2ban_socket_missing",
+            ],
+        )
 
     def test_config_present_but_not_mounted_is_flagged(self):
         result = collect(ismount=False)

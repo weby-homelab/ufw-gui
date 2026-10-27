@@ -20,26 +20,46 @@ def collect_diagnostics() -> dict:
     config_dir_mounted = os.path.ismount(UFW_CONFIG_DIR)
     fail2ban_socket_present = os.path.exists(FAIL2BAN_SOCKET)
 
-    hints: list[str] = []
+    hints: list[tuple[str, str]] = []
     if not ufw_binary_present:
         hints.append(
-            "The ufw binary is missing from the container image; use an official image "
-            "built after 1.6.3 or rebuild from this repository."
+            (
+                "ufw_binary_missing",
+                (
+                    "The ufw binary is missing from the container image; use an official image "
+                    "built after 1.6.3 or rebuild from this repository."
+                ),
+            )
         )
     if not config_dir_present:
         hints.append(
-            "The host /etc/ufw directory is not mounted. Add the volume "
-            "'/etc/ufw:/etc/ufw' and restart the container."
+            (
+                "ufw_config_missing",
+                (
+                    "The host /etc/ufw directory is not mounted. Add the volume "
+                    "'/etc/ufw:/etc/ufw' and restart the container."
+                ),
+            )
         )
     elif not config_dir_mounted:
         hints.append(
-            "/etc/ufw exists in the container but is not a host bind mount. "
-            "Rules shown here may not match the host firewall."
+            (
+                "ufw_config_not_mounted",
+                (
+                    "/etc/ufw exists in the container but is not a host bind mount. "
+                    "Rules shown here may not match the host firewall."
+                ),
+            )
         )
     if not fail2ban_socket_present:
         hints.append(
-            "The Fail2Ban socket is not mounted; Fail2Ban status will be unavailable. "
-            "Mount '/var/run/fail2ban/fail2ban.sock' to enable it."
+            (
+                "fail2ban_socket_missing",
+                (
+                    "The Fail2Ban socket is not mounted; Fail2Ban status will be unavailable. "
+                    "Mount '/var/run/fail2ban/fail2ban.sock' to enable it."
+                ),
+            )
         )
 
     return {
@@ -51,5 +71,7 @@ def collect_diagnostics() -> dict:
         "fail2ban": {
             "socket_present": fail2ban_socket_present,
         },
-        "hints": hints,
+        # Codes are stable for UI translation; messages remain for API consumers.
+        "hint_codes": [code for code, _message in hints],
+        "hints": [message for _code, message in hints],
     }
