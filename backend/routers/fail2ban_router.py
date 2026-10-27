@@ -1,12 +1,13 @@
 """
 UFW-GUI - Fail2Ban router
 """
-from fastapi import APIRouter, Body, Depends, HTTPException
 import re
 
+from fastapi import APIRouter, Body, Depends, HTTPException
+
 from backend.services.auth_service import get_current_user
-from backend.services.subprocess_service import run_fail2ban
 from backend.services.database_service import log_action
+from backend.services.subprocess_service import run_fail2ban
 from backend.utils.validators import is_valid_ip, is_valid_jail
 
 router = APIRouter(prefix="/api/fail2ban", tags=["Fail2Ban"])

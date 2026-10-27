@@ -2,23 +2,24 @@
 UFW-GUI - Test reload router
 Handles 60-second test mode with auto-rollback
 """
-from fastapi import APIRouter, Depends, HTTPException
-import shutil
-import os
 import asyncio
+import os
+import shutil
 from datetime import datetime
 
+from fastapi import APIRouter, Depends, HTTPException
+
 from backend.services.auth_service import get_current_user
-from backend.services.subprocess_service import run_ufw
-from backend.services.filesystem_service import (
-    save_test_rollback,
-    get_test_rollback_path,
-    UFW_BACKUP_DIR,
-    get_test_state,
-    save_test_state,
-    clear_test_state,
-)
 from backend.services.database_service import log_action
+from backend.services.filesystem_service import (
+    UFW_BACKUP_DIR,
+    clear_test_state,
+    get_test_rollback_path,
+    get_test_state,
+    save_test_rollback,
+    save_test_state,
+)
+from backend.services.subprocess_service import run_ufw
 
 router = APIRouter(prefix="/api/reload", tags=["Test Mode"])
 
@@ -43,7 +44,7 @@ async def perform_rollback():
         pass
     except Exception as e:
         import logging
-        logging.error(f"Failed to auto-rollback firewall configuration: {str(e)}")
+        logging.error(f"Failed to auto-rollback firewall configuration: {e!s}")
 
 
 @router.post("/test")

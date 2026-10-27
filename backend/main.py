@@ -2,26 +2,33 @@
 UFW-GUI - FastAPI Application Entry Point
 Imports and registers all routers, configures middleware, serves frontend.
 """
-import os
 import asyncio
+import os
+import shutil
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
-from backend.services.database_service import init_db, log_action, shutdown_db
-from backend.services.filesystem_service import init_dirs, get_test_state, get_test_rollback_path, clear_test_state
-from backend.services.log_parser_service import start_log_parser
-from backend.services.subprocess_service import run_ufw
+from backend.routers.admin_router import router as admin_router
+
 # --- Import Routers ---
 from backend.routers.auth_router import router as auth_router
-from backend.routers.ufw_router import router as ufw_router
 from backend.routers.fail2ban_router import router as f2b_router
 from backend.routers.logs_router import router as logs_router
-from backend.routers.admin_router import router as admin_router
 from backend.routers.reload_router import router as reload_router
-import shutil
+from backend.routers.ufw_router import router as ufw_router
+from backend.services.database_service import init_db, log_action, shutdown_db
+from backend.services.filesystem_service import (
+    clear_test_state,
+    get_test_rollback_path,
+    get_test_state,
+    init_dirs,
+)
+from backend.services.log_parser_service import start_log_parser
+from backend.services.subprocess_service import run_ufw
 
 # --- File Whitelist (breaks CodeQL taint flow) ---
 ALLOWED_FILES: dict[str, str] = {}
@@ -63,7 +70,7 @@ async def check_and_rollback_on_startup():
                 log_action("SYSTEM", "CRASH_ROLLBACK", "Detected interrupted test. Auto-reverted UFW config.")
                 logging.info("Auto-rollback successful.")
             except Exception as e:
-                logging.error(f"Failed to perform startup rollback: {str(e)}")
+                logging.error(f"Failed to perform startup rollback: {e!s}")
         clear_test_state()
 
 

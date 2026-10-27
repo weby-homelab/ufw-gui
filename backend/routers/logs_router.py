@@ -1,9 +1,10 @@
 """
 UFW-GUI - Logs and statistics router
 """
-from fastapi import APIRouter, Depends
-import re
 import os
+import re
+
+from fastapi import APIRouter, Depends
 
 from backend.services.auth_service import get_current_user
 from backend.services.database_service import get_stats_last_24h

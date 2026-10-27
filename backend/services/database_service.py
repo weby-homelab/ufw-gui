@@ -2,10 +2,10 @@
 UFW-GUI - Database service
 Handles SQLite operations for drops and audit logs
 """
-import os
 import json
-import sqlite3
 import logging
+import os
+import sqlite3
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 

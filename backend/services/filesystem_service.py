@@ -2,14 +2,13 @@
 UFW-GUI - Filesystem service
 Handles snapshot management, users, and configuration files
 """
-import os
+import asyncio
 import json
+import os
 import shutil
 import sqlite3
 import tempfile
-import asyncio
 from datetime import datetime
-
 
 DATA_DIR = "/app/data"
 USER_DATA_FILE = f"{DATA_DIR}/users.json"

@@ -2,12 +2,13 @@
 UFW-GUI - Subprocess execution service
 Handles all system command execution with argument validation
 """
+import asyncio
+from subprocess import CalledProcessError, run
+
 from fastapi import HTTPException
-from subprocess import run, CalledProcessError
+
 from backend.utils.validators import validate_args
 
-
-import asyncio
 
 async def run_ufw(*args) -> str:
     safe_args = validate_args(args)

@@ -1,8 +1,8 @@
 """
 UFW-GUI - Validation and sanitization utilities
 """
-import re
 import ipaddress
+import re
 
 
 def is_valid_ip(ip: str) -> bool:

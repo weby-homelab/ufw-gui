@@ -2,11 +2,11 @@
 UFW-GUI - Log parser service
 Reads UFW block logs in a non-blocking background task and stores them in SQLite for statistics
 """
+import asyncio
 import os
 import re
 import sqlite3
-import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 DATA_DIR = "/app/data"
 DB_FILE = f"{DATA_DIR}/stats.db"
@@ -64,7 +64,7 @@ async def start_log_parser():
             break
         except Exception as e:
             import logging
-            logging.error(f"Error in log parser: {str(e)}")
+            logging.error(f"Error in log parser: {e!s}")
 
 
 async def parse_logs_range(path: str, start: int, end: int):
@@ -91,7 +91,7 @@ async def parse_logs_range(path: str, start: int, end: int):
                 src_ip = src.group(1)
                 proto_str = proto.group(1) if proto else "?"
                 port_str = dpt.group(1) if dpt else "?"
-                ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+                ts = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S")
                 drops.append((ts, src_ip, proto_str, port_str))
 
     if drops:
@@ -105,7 +105,7 @@ async def parse_logs_range(path: str, start: int, end: int):
                 conn.commit()
             except Exception as e:
                 import logging
-                logging.error(f"Failed to write drops to DB: {str(e)}")
+                logging.error(f"Failed to write drops to DB: {e!s}")
             finally:
                 conn.close()
 
