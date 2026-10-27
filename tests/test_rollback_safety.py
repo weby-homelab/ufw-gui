@@ -69,5 +69,20 @@ class RollbackSafetyTests(unittest.TestCase):
             operation.assert_not_called()
 
 
+
+    def test_test_mode_refuses_mounted_firewall_before_any_changes(self):
+        with patch.object(reload_router.os.path, "ismount", return_value=True), \
+             patch.object(reload_router, "save_test_rollback", new_callable=AsyncMock) as backup, \
+             patch.object(reload_router, "save_test_state") as save, \
+             patch.object(reload_router, "run_ufw", new_callable=AsyncMock) as run:
+            with self.assertRaises(reload_router.HTTPException) as raised:
+                asyncio.run(reload_router.reload_test(user={"username": "admin"}))
+            self.assertEqual(raised.exception.status_code, 503)
+            self.assertIn("rollback", raised.exception.detail)
+            backup.assert_not_called()
+            save.assert_not_called()
+            run.assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main()

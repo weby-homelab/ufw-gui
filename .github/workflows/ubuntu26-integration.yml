@@ -51,6 +51,8 @@ jobs:
           token=$(curl -fsS -d 'username=ciadmin&password=temporary-test-password' "$base/api/auth/login" | python3 -c 'import json,sys; print(json.load(sys.stdin)["access_token"])')
           curl -fsS -H "Authorization: Bearer $token" "$base/api/auth/me" | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["username"] == "ciadmin" and d["role"] == "superadmin"'
           curl -fsS -H "Authorization: Bearer $token" "$base/api/users" | python3 -c 'import json,sys; d=json.load(sys.stdin); assert "ciadmin" in str(d)'
+          test "$(curl -s -o /tmp/test-mode-response -w '%{http_code}' -X POST -H "Authorization: Bearer $token" "$base/api/reload/test")" = 503
+          python3 -c 'import json; assert "rollback" in json.load(open("/tmp/test-mode-response"))["detail"]'
           curl -fsS -H "Authorization: Bearer $token" "$base/api/status" | python3 -c 'import json,sys; assert json.load(sys.stdin)["status"] == "running"'
           curl -fsS -H "Authorization: Bearer $token" "$base/api/rules" | python3 -c 'import json,sys; d=json.load(sys.stdin); assert any("49151/tcp" in r["to"] for r in d["rules"]), d'
           curl -fsS -H "Authorization: Bearer $token" -H 'Content-Type: application/json' -d '{"action":"allow","port":"49152","proto":"tcp","ip":""}' "$base/api/rule"

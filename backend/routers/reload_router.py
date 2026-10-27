@@ -56,6 +56,14 @@ async def perform_rollback():
 async def reload_test(user=current_user_dependency):
     global rollback_task_ref
 
+    # Do not start a test when the available rollback implementation cannot
+    # safely restore a bind-mounted host firewall.
+    if os.path.ismount("/etc/ufw"):
+        raise HTTPException(
+            status_code=503,
+            detail="Firewall test mode is unavailable: rollback of a mounted /etc/ufw is not supported.",
+        )
+
     # Check persistent test state to block parallel tests
     state = get_test_state()
     if state.get("status") == "testing":
