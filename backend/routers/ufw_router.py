@@ -11,12 +11,19 @@ from backend.services.auth_service import get_current_user
 from backend.services.database_service import log_action
 from backend.services.recovery_guard import protect_firewall_mutation
 from backend.services.subprocess_service import run_ufw
+from backend.services.system_diagnostics import collect_diagnostics
 from backend.utils.validators import is_valid_ip, is_valid_port, is_valid_proto
 
 current_user_dependency = Depends(get_current_user)
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["UFW"])
+
+
+@router.get("/diagnostics")
+async def get_diagnostics(user=current_user_dependency):
+    """Read-only checks that explain an empty or unavailable UFW panel."""
+    return collect_diagnostics()
 
 
 @router.get("/status")

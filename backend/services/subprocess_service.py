@@ -3,6 +3,7 @@ UFW-GUI - Subprocess execution service
 Handles all system command execution with argument validation
 """
 
+import logging
 from subprocess import CalledProcessError, CompletedProcess, run
 
 from fastapi import HTTPException
@@ -14,6 +15,8 @@ from backend.services.recovery_guard import (
     mutation_lock_descriptors,
 )
 from backend.utils.validators import validate_args
+
+logger = logging.getLogger(__name__)
 
 
 async def _run_command(command: list[str]) -> CompletedProcess[str]:
@@ -49,10 +52,19 @@ async def run_ufw(*args) -> str:
     try:
         result = await _run_command(["ufw"] + safe_args)
         return result.stdout.strip()
-    except CalledProcessError:
-        raise HTTPException(
-            status_code=500, detail="UFW command failed. Check system logs."
+    except CalledProcessError as exc:
+        logger.warning(
+            "UFW command failed with exit code %s; stderr was suppressed.",
+            exc.returncode,
         )
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "UFW command failed. Check that the container has NET_ADMIN, runs "
+                "with network_mode: host and has the host /etc/ufw mounted. "
+                "See /api/diagnostics for details."
+            ),
+        ) from None
 
 
 async def run_fail2ban(*args) -> str:
@@ -60,7 +72,15 @@ async def run_fail2ban(*args) -> str:
     try:
         result = await _run_command(["fail2ban-client"] + safe_args)
         return result.stdout.strip()
-    except CalledProcessError:
-        raise HTTPException(
-            status_code=500, detail="Fail2Ban command failed. Check system logs."
+    except CalledProcessError as exc:
+        logger.warning(
+            "Fail2Ban command failed with exit code %s; stderr was suppressed.",
+            exc.returncode,
         )
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "Fail2Ban command failed. Check that the host socket is mounted "
+                "at /var/run/fail2ban/fail2ban.sock."
+            ),
+        ) from None

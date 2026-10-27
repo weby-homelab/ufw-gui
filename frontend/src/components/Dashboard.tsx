@@ -8,6 +8,7 @@ import StatsChart from "./StatsChart";
 
 interface DashboardProps {
   status: any;
+  diagnostics: any;
   rules: any[];
   bannedIps: any[];
   fwLogs: any[];
@@ -19,6 +20,7 @@ interface DashboardProps {
 
 function Dashboard({
   status,
+  diagnostics,
   rules,
   bannedIps,
   fwLogs,
@@ -32,7 +34,7 @@ function Dashboard({
   return (
     <>
       <div className="side-pane">
-        <UfwStatus status={status} apiAction={apiAction} />
+        <UfwStatus status={status} diagnostics={diagnostics} apiAction={apiAction} />
         <QuickActions inputs={inputs} setInputs={setInputs} apiAction={apiAction} />
       </div>
 
