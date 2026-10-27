@@ -61,5 +61,13 @@ jobs:
           sudo ufw status numbered | tee /tmp/ufw-ci-after-delete
           ! grep -q "49152/tcp" /tmp/ufw-ci-after-delete
           grep -q "49151/tcp" /tmp/ufw-ci-after-delete
+      - name: Verify bind-mounted host firewall survives interrupted rollback
+        run: |
+          sudo sha256sum /etc/ufw/user.rules > /tmp/ufw-rules-before
+          docker exec ufw-gui-ci python -c 'import json, os, shutil; assert os.path.ismount("/etc/ufw"); p="/app/data/ufw_backups/test_rollback_config"; shutil.copytree("/etc/ufw",p,dirs_exist_ok=True); json.dump({"status":"testing"},open("/app/data/test_state.json","w"))'
+          docker restart ufw-gui-ci
+          for i in $(seq 1 60); do curl -fsS http://127.0.0.1:18081/api/health && break; sleep 2; done
+          docker exec ufw-gui-ci python -c 'import json; assert json.load(open("/app/data/test_state.json"))["status"] == "testing"'
+          sudo sha256sum --check /tmp/ufw-rules-before
       - if: always()
         run: docker logs ufw-gui-ci || true
