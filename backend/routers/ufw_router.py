@@ -29,13 +29,30 @@ async def get_diagnostics(user=current_user_dependency):
 @router.get("/status")
 async def get_status(user=current_user_dependency):
     try:
-        status = await run_ufw("status")
-        return {"status": "running" if "Status: active" in status else "inactive"}
-    except HTTPException:
-        raise
+        output = await run_ufw("status")
+    except HTTPException as exc:
+        # Storage/recovery failures must remain visible as HTTP 503. A failed
+        # UFW command is a diagnostic state, not proof that UFW is inactive.
+        if exc.status_code == 503:
+            raise
+        logger.warning("UFW status command failed with HTTP %s.", exc.status_code)
+        return {"status": "unknown", "error_code": "ufw_command_failed"}
     except OSError as exc:
         logger.warning("Could not read UFW status (%s).", type(exc).__name__)
-        return {"status": "unknown", "error": "UFW status is unavailable."}
+        return {"status": "unknown", "error_code": "ufw_command_unavailable"}
+
+    status_lines = {
+        line.strip().lower()
+        for line in output.splitlines()
+        if line.strip().lower() in {"status: active", "status: inactive"}
+    }
+    if status_lines == {"status: active"}:
+        return {"status": "running"}
+    if status_lines == {"status: inactive"}:
+        return {"status": "inactive"}
+
+    logger.warning("UFW status output did not contain a recognized status line.")
+    return {"status": "unknown", "error_code": "ufw_status_unrecognized"}
 
 
 @router.post("/toggle")
