@@ -67,6 +67,10 @@ body { margin: 0; background-color: var(--bg-color); color: var(--text-main); fo
 .recovery-notice { background: var(--hover-overlay); border: 1px solid var(--card-border); }
 .recovery-alert { background: var(--accent-danger-bg); border: 1px solid var(--accent-danger); }
 
+.language-switcher select { background: var(--input-bg); color: var(--text-main); border: 1px solid var(--input-border); border-radius: 8px; padding: 8px 10px; font: inherit; font-size: 0.9em; cursor: pointer; }
+.language-switcher select:focus { outline: 2px solid var(--accent-success); outline-offset: 2px; }
+.auth-lang { display: flex; justify-content: flex-end; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 .text-success { color: var(--accent-success); }
 .text-danger { color: var(--accent-danger); }
 .text-warning { color: #ffc107; }

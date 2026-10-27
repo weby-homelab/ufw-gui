@@ -45,6 +45,12 @@
 - **Audit Logs:** Detailed user action logs.
 - **Telegram Alerts:** Instant notifications of rule changes directly to your Telegram.
 
+### 🌐 Languages
+- The interface is available in **English**, **Українська** and **简体中文 (zh-CN)**. The selector is in the header and on the login/setup screens; the choice is stored in the browser.
+- Translations live in `frontend/src/i18n.tsx`. Every locale implements the `Dictionary` type, so the CI typecheck fails if a key is missing.
+- To add a language: copy the `en` object, translate the values without changing the keys, register the locale in `LANGUAGES` and `dictionaries`, then run `npm ci && npx tsc --noEmit && npm test && npm run build`.
+- UI text and known action errors are translated. Backend data values (for example `ALLOW IN` or free-form audit-log details) remain as recorded; unknown diagnostic codes use a translated generic message.
+
 ### ⚠️ Firewall Recovery Behavior
 - The 60-second test mode and automatic rollback are disabled. `/api/reload/test` and `/api/reload/confirm` return HTTP 503.
 - Recovery state has two modes: no marker means `immediate_apply` (not a claim that the current firewall is known-good); any existing, unreadable, corrupt, dangling-link, or uninspectable marker means `manual_recovery_required` and firewall mutations return HTTP 503.

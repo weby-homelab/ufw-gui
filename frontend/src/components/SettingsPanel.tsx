@@ -1,3 +1,5 @@
+import { useI18n } from "../i18n";
+
 interface SettingsPanelProps {
   tgConfig: any;
   setTgConfig: (config: any) => void;
@@ -5,34 +7,39 @@ interface SettingsPanelProps {
 }
 
 function SettingsPanel({ tgConfig, setTgConfig, apiAction }: SettingsPanelProps) {
+  const { t } = useI18n();
   return (
     <div className="wide-pane">
       <section className="glass-card">
-        <h2>Settings</h2>
+        <h2>{t("settings.title")}</h2>
         <div className="add-form-col">
-          <label>Telegram Bot Token</label>
+          <label>{t("settings.token_label")}</label>
           <p role="note">
             {tgConfig.tg_token_configured
-              ? "A token is configured. Leave this blank to keep it unchanged, or enter a replacement. The saved token is never returned by the API."
-              : "No token is configured. Enter one to enable Telegram alerts."}
+              ? t("settings.token_configured")
+              : t("settings.token_missing")}
           </p>
           <input
             value={tgConfig.tg_token}
             onChange={(e) => setTgConfig({ ...tgConfig, tg_token: e.target.value })}
-            placeholder={tgConfig.tg_token_configured ? "Leave blank to keep current token" : "Telegram bot token"}
+            placeholder={
+              tgConfig.tg_token_configured
+                ? t("settings.token_placeholder_keep")
+                : t("settings.token_placeholder_new")
+            }
           />
-          <label>Telegram Chat ID</label>
+          <label>{t("settings.chat_id")}</label>
           <input
             value={tgConfig.tg_chat_id}
             onChange={(e) => setTgConfig({ ...tgConfig, tg_chat_id: e.target.value })}
-            placeholder="Chat ID"
+            placeholder={t("settings.chat_placeholder")}
           />
           <button
             className="btn-reload"
             onClick={() => apiAction("/api/settings", "POST", tgConfig)}
             style={{ width: "150px", marginTop: "10px" }}
           >
-            Save Settings
+            {t("settings.save")}
           </button>
         </div>
       </section>

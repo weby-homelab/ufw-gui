@@ -1,21 +1,24 @@
+import { useI18n } from "../i18n";
+
 interface LiveDropsTableProps {
   logs: any[];
   apiAction: (url: string, method: string, body?: any) => void;
 }
 
 function LiveDropsTable({ logs, apiAction }: LiveDropsTableProps) {
+  const { t } = useI18n();
   return (
     <section className="glass-card">
-      <h2>Live UFW Blocks</h2>
+      <h2>{t("drops.title")}</h2>
       <div className="table-container">
         <table className="log-table">
           <thead>
             <tr>
-              <th>Time</th>
-              <th>Source IP</th>
-              <th>Proto</th>
-              <th>Port</th>
-              <th>Action</th>
+              <th>{t("drops.time")}</th>
+              <th>{t("drops.source")}</th>
+              <th>{t("drops.proto")}</th>
+              <th>{t("drops.port")}</th>
+              <th>{t("drops.action")}</th>
             </tr>
           </thead>
           <tbody>
@@ -30,7 +33,7 @@ function LiveDropsTable({ logs, apiAction }: LiveDropsTableProps) {
                     className="btn-mini-ban"
                     onClick={() => apiAction("/api/ban", "POST", { ip: l.src })}
                   >
-                    Ban IP
+                    {t("drops.ban")}
                   </button>
                 </td>
               </tr>
@@ -38,7 +41,7 @@ function LiveDropsTable({ logs, apiAction }: LiveDropsTableProps) {
             {logs.length === 0 && (
               <tr>
                 <td colSpan={5} className="empty">
-                  No dropped packets found in UFW logs. Ensure UFW logging is ON.
+                  {t("drops.empty")}
                 </td>
               </tr>
             )}

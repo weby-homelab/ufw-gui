@@ -1,14 +1,17 @@
+import { useI18n } from "../i18n";
+
 interface SnapshotsPanelProps {
   snapshots: string[];
 }
 
 function SnapshotsPanel({ snapshots }: SnapshotsPanelProps) {
+  const { t } = useI18n();
   return (
     <div className="wide-pane">
       <section className="glass-card">
-        <h2>Snapshots (Manual Review Only)</h2>
+        <h2>{t("snapshots.title")}</h2>
         <p className="recovery-alert" role="note">
-          Snapshot creation and restore are disabled. Existing snapshots are retained for manual inspection.
+          {t("snapshots.notice")}
         </p>
         <div className="snap-list">
           {snapshots.map((s: string) => (
@@ -18,7 +21,7 @@ function SnapshotsPanel({ snapshots }: SnapshotsPanelProps) {
           ))}
           {snapshots.length === 0 && (
             <p className="empty">
-              No snapshots are available for manual review.
+              {t("snapshots.empty")}
             </p>
           )}
         </div>

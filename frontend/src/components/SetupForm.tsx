@@ -1,11 +1,14 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
+import LanguageSwitcher from "./LanguageSwitcher";
+import { useI18n } from "../i18n";
 
 interface SetupProps {
   onComplete: () => void;
 }
 
 function SetupForm({ onComplete }: SetupProps) {
+  const { t } = useI18n();
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -21,12 +24,12 @@ function SetupForm({ onComplete }: SetupProps) {
     setError("");
     if (window.location.protocol !== "https:") {
       tokenInput.value = "";
-      setError("Setup requires HTTPS. Open the dashboard through your trusted HTTPS proxy.");
+      setError(t("setup.error_https"));
       return;
     }
     if (Array.from(password).length < 12 || new TextEncoder().encode(password).length > 72) {
       tokenInput.value = "";
-      setError("Password must have at least 12 characters and at most 72 UTF-8 bytes.");
+      setError(t("setup.error_password"));
       return;
     }
     setSubmitting(true);
@@ -41,14 +44,14 @@ function SetupForm({ onComplete }: SetupProps) {
         form.reset();
         onComplete();
       } else if (res.status === 503) {
-        setError("Setup is unavailable. Check the server configuration and storage.");
+        setError(t("setup.error_unavailable"));
       } else if (res.status === 403) {
-        setError("Setup authorization failed. Check the setup token.");
+        setError(t("setup.error_forbidden"));
       } else {
-        setError("Could not create the administrator. Check the username and password.");
+        setError(t("setup.error_generic"));
       }
     } catch {
-      setError("Could not contact the server. Check your connection and try again.");
+      setError(t("setup.error_network"));
     } finally {
       tokenInput.value = "";
       setSubmitting(false);
@@ -58,25 +61,24 @@ function SetupForm({ onComplete }: SetupProps) {
   return (
     <div className="auth-screen">
       <form className="glass-card auth-card" onSubmit={handleSubmit}>
-        <h2>UFW-GUI Setup</h2>
-        <p className="auth-hint" id="setup-help">
-          Use the separate setup token configured on the server over a trusted HTTPS connection.
-        </p>
+        <div className="auth-lang"><LanguageSwitcher /></div>
+        <h2>{t("setup.title")}</h2>
+        <p className="auth-hint" id="setup-help">{t("setup.hint")}</p>
         <label className="auth-field" htmlFor="setup-user">
-          Username
+          {t("setup.username")}
           <input id="setup-user" name="user" autoComplete="username" maxLength={64} required />
         </label>
         <label className="auth-field" htmlFor="setup-pass">
-          Password (at least 12 characters; at most 72 UTF-8 bytes)
+          {t("setup.password")}
           <input id="setup-pass" name="pass" type="password" autoComplete="new-password" maxLength={72} required />
         </label>
         <label className="auth-field" htmlFor="setup-token">
-          Setup token
+          {t("setup.token")}
           <input id="setup-token" name="setup_token" type="password" autoComplete="off" maxLength={256} aria-describedby="setup-help" required />
         </label>
         {error && <p className="auth-error" role="alert">{error}</p>}
         <button className="btn-reload" type="submit" disabled={submitting}>
-          {submitting ? "Creating administrator…" : "Create Admin"}
+          {submitting ? t("setup.submitting") : t("setup.submit")}
         </button>
       </form>
     </div>

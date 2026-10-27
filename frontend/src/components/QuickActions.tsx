@@ -1,3 +1,5 @@
+import { useI18n } from "../i18n";
+
 interface QuickActionsProps {
   inputs: any;
   setInputs: (inputs: any) => void;
@@ -5,11 +7,12 @@ interface QuickActionsProps {
 }
 
 function QuickActions({ inputs, setInputs, apiAction }: QuickActionsProps) {
+  const { t } = useI18n();
   return (
     <section className="glass-card">
-      <h3>Quick Actions</h3>
+      <h3>{t("quick.title")}</h3>
       <div className="add-form-col">
-        <label>Port & Protocol</label>
+        <label>{t("quick.port_proto")}</label>
         <div style={{ display: "flex", gap: "5px" }}>
           <input
             value={inputs.port}
@@ -22,16 +25,16 @@ function QuickActions({ inputs, setInputs, apiAction }: QuickActionsProps) {
             onChange={(e) => setInputs({ ...inputs, proto: e.target.value })}
             style={{ flex: 1, minWidth: 0 }}
           >
-            <option value="">Any</option>
+            <option value="">{t("quick.any")}</option>
             <option value="tcp">TCP</option>
             <option value="udp">UDP</option>
           </select>
         </div>
-        <label style={{ marginTop: "10px" }}>Target IP / Subnet (Optional)</label>
+        <label style={{ marginTop: "10px" }}>{t("quick.target")}</label>
         <input
           value={inputs.ruleIp}
           onChange={(e) => setInputs({ ...inputs, ruleIp: e.target.value })}
-          placeholder="192.168.1.0/24 or Any"
+          placeholder={t("quick.target_placeholder")}
         />
         <div style={{ display: "flex", gap: "5px", marginTop: "10px" }}>
           <button
@@ -46,7 +49,7 @@ function QuickActions({ inputs, setInputs, apiAction }: QuickActionsProps) {
               setInputs({ ...inputs, port: "", ruleIp: "" });
             }}
           >
-            Allow
+            {t("quick.allow")}
           </button>
           <button
             className="btn-danger"
@@ -60,7 +63,7 @@ function QuickActions({ inputs, setInputs, apiAction }: QuickActionsProps) {
               setInputs({ ...inputs, port: "", ruleIp: "" });
             }}
           >
-            Deny
+            {t("quick.deny")}
           </button>
         </div>
       </div>
@@ -73,7 +76,7 @@ function QuickActions({ inputs, setInputs, apiAction }: QuickActionsProps) {
           paddingTop: "15px",
         }}
       >
-        <label>Quick Ban IP Address</label>
+        <label>{t("quick.quick_ban")}</label>
         <input
           value={inputs.banIp}
           onChange={(e) => setInputs({ ...inputs, banIp: e.target.value })}
@@ -87,7 +90,7 @@ function QuickActions({ inputs, setInputs, apiAction }: QuickActionsProps) {
             setInputs({ ...inputs, banIp: "" });
           }}
         >
-          Ban IP
+          {t("quick.ban")}
         </button>
       </div>
     </section>
