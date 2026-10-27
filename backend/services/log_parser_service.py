@@ -2,15 +2,21 @@
 UFW-GUI - Log parser service
 Reads UFW block logs in a non-blocking background task and stores them in SQLite for statistics
 """
+
 import asyncio
+import logging
 import os
 import re
 import sqlite3
+from contextlib import closing
 from datetime import UTC, datetime
+
+from backend.services.sqlite_utils import connect_existing_database
 
 DATA_DIR = "/app/data"
 DB_FILE = f"{DATA_DIR}/stats.db"
 LOG_PATHS = ["/var/log/ufw.log", "/var/log/syslog"]
+logger = logging.getLogger(__name__)
 
 
 async def start_log_parser():
@@ -21,8 +27,7 @@ async def start_log_parser():
             break
 
     if not log_path:
-        import logging
-        logging.warning("No log files found. Statistics parser disabled.")
+        logger.warning("No log files found. Statistics parser disabled.")
         return
 
     # Seek to end on startup to only parse new logs
@@ -30,7 +35,8 @@ async def start_log_parser():
         stat = os.stat(log_path)
         offset = stat.st_size
         inode = stat.st_ino
-    except Exception:
+    except OSError as exc:
+        logger.warning("Could not inspect the firewall log (%s).", type(exc).__name__)
         offset = 0
         inode = None
 
@@ -51,8 +57,7 @@ async def start_log_parser():
 
             # Detect log rotation: inode changed or size decreased
             if inode is not None and (curr_inode != inode or curr_size < offset):
-                import logging
-                logging.info("Log rotation detected. Resetting offset.")
+                logger.info("Log rotation detected. Resetting offset.")
                 offset = 0
                 inode = curr_inode
 
@@ -62,20 +67,21 @@ async def start_log_parser():
                 inode = curr_inode
         except asyncio.CancelledError:
             break
-        except Exception as e:
-            import logging
-            logging.error(f"Error in log parser: {e!s}")
+        except (OSError, sqlite3.Error) as exc:
+            logger.error("Log parser iteration failed (%s).", type(exc).__name__)
 
 
 async def parse_logs_range(path: str, start: int, end: int):
     try:
+
         def read_chunk():
             with open(path, "r", errors="ignore") as f:
                 f.seek(start)
                 return f.read(end - start)
 
         content = await asyncio.to_thread(read_chunk)
-    except Exception:
+    except OSError as exc:
+        logger.warning("Could not read firewall log chunk (%s).", type(exc).__name__)
         return
 
     lines = content.splitlines()
@@ -95,18 +101,17 @@ async def parse_logs_range(path: str, start: int, end: int):
                 drops.append((ts, src_ip, proto_str, port_str))
 
     if drops:
+
         def write_drops():
-            conn = sqlite3.connect(DB_FILE)
-            try:
+            with closing(connect_existing_database(DB_FILE)) as conn, conn:
                 conn.executemany(
                     "INSERT OR IGNORE INTO drops (ts, src, proto, port) VALUES (?, ?, ?, ?)",
-                    drops
+                    drops,
                 )
-                conn.commit()
-            except Exception as e:
-                import logging
-                logging.error(f"Failed to write drops to DB: {e!s}")
-            finally:
-                conn.close()
 
-        await asyncio.to_thread(write_drops)
+        try:
+            await asyncio.to_thread(write_drops)
+        except sqlite3.Error as exc:
+            logger.error(
+                "Failed to write firewall statistics (%s).", type(exc).__name__
+            )

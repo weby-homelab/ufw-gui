@@ -1,16 +1,20 @@
 """
 UFW-GUI - Fail2Ban router
 """
+
+import logging
 import re
 
 from fastapi import APIRouter, Body, Depends, HTTPException
 
 from backend.services.auth_service import get_current_user
 from backend.services.database_service import log_action
+from backend.services.recovery_guard import protect_firewall_mutation
 from backend.services.subprocess_service import run_fail2ban
 from backend.utils.validators import is_valid_ip, is_valid_jail
 
 current_user_dependency = Depends(get_current_user)
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/fail2ban", tags=["Fail2Ban"])
 
@@ -33,11 +37,17 @@ async def get_f2b_status(user=current_user_dependency):
             for ip in ips:
                 banned.append({"ip": ip, "jail": j})
         return {"banned": banned}
-    except Exception:
-        return {"banned": []}
+    except HTTPException:
+        raise
+    except OSError as exc:
+        logger.warning("Fail2Ban status could not be read (%s).", type(exc).__name__)
+        raise HTTPException(
+            status_code=503, detail="Fail2Ban status is unavailable."
+        ) from exc
 
 
 @router.post("/unban")
+@protect_firewall_mutation
 async def unban_ip(
     ip: str = Body(...),
     jail: str = Body(...),
