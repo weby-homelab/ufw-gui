@@ -15,7 +15,6 @@ interface DashboardProps {
   inputs: any;
   setInputs: (inputs: any) => void;
   apiAction: (url: string, method: string, body?: any) => void;
-  testTime: number;
 }
 
 function Dashboard({
@@ -27,7 +26,6 @@ function Dashboard({
   inputs,
   setInputs,
   apiAction,
-  testTime,
 }: DashboardProps) {
   const [monitorView, setMonitorView] = useState("rules");
 

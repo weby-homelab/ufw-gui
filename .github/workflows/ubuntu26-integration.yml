@@ -1,16 +1,37 @@
 name: Ubuntu 26 Docker and host UFW integration
 on:
-  pull_request:
-  push:
-    branches: [fix/release-preserve-docker-tags]
+  workflow_dispatch:
+    inputs:
+      candidate_sha:
+        description: Full immutable candidate commit SHA (review before dispatch)
+        required: true
+        type: string
 permissions:
   contents: read
 jobs:
   host-ufw:
+    if: ${{ github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-26.04
     timeout-minutes: 25
     steps:
+      - name: Validate immutable candidate SHA
+        env:
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+        run: |
+          set -eu
+          case "$CANDIDATE_SHA" in
+            *[!0-9a-f]*|'') echo "candidate_sha must be a full lowercase commit SHA" >&2; exit 1 ;;
+          esac
+          test "${#CANDIDATE_SHA}" -eq 40
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ inputs.candidate_sha }}
+          path: candidate
+          persist-credentials: false
+      - name: Verify checkout matches requested SHA
+        env:
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+        run: test "$(git -C candidate rev-parse HEAD)" = "$CANDIDATE_SHA"
       - name: Prepare disposable host
         run: |
           cat /etc/os-release
@@ -23,10 +44,20 @@ jobs:
           sudo ufw allow 49151/tcp
           sudo ufw status verbose
       - name: Build image
-        run: docker build -t ufw-gui-ci .
+        run: docker build -t ufw-gui-ci "$GITHUB_WORKSPACE/candidate"
+      - name: Initialize isolated application storage
+        run: |
+          set -eu
+          mkdir -p "$RUNNER_TEMP/ufw-gui-data"
+          docker run --rm \
+            -v "$RUNNER_TEMP/ufw-gui-data:/app/data" \
+            ufw-gui-ci python -m backend.initialize_storage
       - name: Start application against host firewall
         run: |
-          docker run -d --name ufw-gui-ci --network host --cap-add NET_ADMIN --cap-add DAC_OVERRIDE --cap-add FOWNER --cap-add SETUID --cap-add SETGID -e PORT=18081 -e UFW_GUI_SECRET_KEY=temporary-ci-only-secret-key-123456789 -v /etc/ufw:/etc/ufw ufw-gui-ci
+          set -eu
+          export UFW_GUI_SECRET_KEY="$(python3 -c 'import secrets; print(secrets.token_urlsafe(48))')"
+          docker run -d --name ufw-gui-ci --network host --cap-add NET_ADMIN --cap-add DAC_OVERRIDE --cap-add FOWNER --cap-add SETUID --cap-add SETGID -e PORT=18081 --env UFW_GUI_SECRET_KEY -v "$RUNNER_TEMP/ufw-gui-data:/app/data" -v /etc/ufw:/etc/ufw ufw-gui-ci
+          unset UFW_GUI_SECRET_KEY
           for i in $(seq 1 60); do curl -fsS http://127.0.0.1:18081/api/health && exit 0; sleep 2; done
           exit 1
       - name: Verify authentication and host rule round trip
@@ -63,34 +94,41 @@ jobs:
           sudo ufw status numbered | tee /tmp/ufw-ci-after-delete
           ! grep -q "49152/tcp" /tmp/ufw-ci-after-delete
           grep -q "49151/tcp" /tmp/ufw-ci-after-delete
-      - name: Verify snapshot restore refuses a real bind mount
+      - name: Verify disabled snapshot restore preserves firewall files
         run: |
           set -eu
-          sudo sh -c 'printf "snapshot-test-sentinel\\n" > /etc/ufw/ci-snapshot-sentinel'
-          sudo sha256sum /etc/ufw/user.rules /etc/ufw/ci-snapshot-sentinel > /tmp/ufw-snapshot-before
+          sudo sha256sum /etc/ufw/user.rules > /tmp/ufw-snapshot-before
           docker exec -i ufw-gui-ci python - <<'PY'
           import asyncio
           import os
-          from backend.services.filesystem_service import UFW_BACKUP_DIR, restore_snapshot
+          from fastapi import HTTPException
+          from backend.services.database_service import init_db
+          from backend.services.filesystem_service import restore_snapshot
 
           assert os.path.ismount("/etc/ufw")
-          os.makedirs(os.path.join(UFW_BACKUP_DIR, "ci-snapshot"), exist_ok=True)
+          init_db()
           try:
               asyncio.run(restore_snapshot("ci-snapshot"))
-          except RuntimeError as exc:
-              assert "mounted /etc/ufw" in str(exc), str(exc)
+          except HTTPException as exc:
+              assert exc.status_code == 503
+              assert "snapshot_restore_unavailable" in exc.detail
           else:
-              raise AssertionError("snapshot restoration did not refuse mounted /etc/ufw")
+              raise AssertionError("snapshot restoration was not disabled")
           PY
           sudo sha256sum --check /tmp/ufw-snapshot-before
-          sudo rm /etc/ufw/ci-snapshot-sentinel
-      - name: Verify bind-mounted host firewall survives interrupted rollback
+      - name: Verify legacy recovery evidence survives restart without rollback
         run: |
+          set -eu
           sudo sha256sum /etc/ufw/user.rules > /tmp/ufw-rules-before
-          docker exec ufw-gui-ci python -c 'import json, os, shutil; assert os.path.ismount("/etc/ufw"); p="/app/data/ufw_backups/test_rollback_config"; shutil.copytree("/etc/ufw",p,dirs_exist_ok=True); json.dump({"status":"testing"},open("/app/data/test_state.json","w"))'
+          docker exec ufw-gui-ci python -c 'import json, os, shutil; assert os.path.ismount("/etc/ufw"); p="/app/data/ufw_backups/test_rollback_config"; shutil.copytree("/etc/ufw",p,dirs_exist_ok=True); open(os.path.join(p,"ci-evidence"),"wb").write(b"preserve legacy evidence\n"); json.dump({"status":"testing"},open("/app/data/test_state.json","w"))'
           docker restart ufw-gui-ci
           for i in $(seq 1 60); do curl -fsS http://127.0.0.1:18081/api/health && break; sleep 2; done
           docker exec ufw-gui-ci python -c 'import json; assert json.load(open("/app/data/test_state.json"))["status"] == "testing"'
+          docker exec ufw-gui-ci python -c 'from pathlib import Path; assert Path("/app/data/ufw_backups/test_rollback_config/ci-evidence").read_bytes() == b"preserve legacy evidence\n"'
           sudo sha256sum --check /tmp/ufw-rules-before
       - if: always()
         run: docker logs ufw-gui-ci || true
+      - if: always()
+        run: |
+          docker rm -f ufw-gui-ci >/dev/null 2>&1 || true
+          rm -rf "$RUNNER_TEMP/ufw-gui-data"

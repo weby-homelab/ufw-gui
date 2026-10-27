@@ -13,7 +13,9 @@ services:
     environment:
       - TZ=Europe/Kyiv
       - PORT=8080
-      - UFW_GUI_SECRET_KEY=change_me_to_a_secure_random_string_123
+      - UFW_GUI_BIND_ADDRESS=${UFW_GUI_BIND_ADDRESS:-127.0.0.1}
+      - UFW_GUI_SECRET_KEY=${UFW_GUI_SECRET_KEY:?Set UFW_GUI_SECRET_KEY in .env}
+      - UFW_GUI_SETUP_TOKEN=${UFW_GUI_SETUP_TOKEN:-}
     volumes:
       - ./data:/app/data
       - /etc/ufw:/etc/ufw

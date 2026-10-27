@@ -20,9 +20,7 @@ function App() {
   const [fwLogs, setFwLogs] = useState<any[]>([])
   const [stats, setStats] = useState<any[]>([])
   const [apiLoading, setApiLoading] = useState(false)
-  const [testLoading, setTestLoading] = useState(false)
-  const [testTime, setTestTime] = useState(0)
-  const [isTesting, setIsTesting] = useState(false)
+  const [recoveryStatus, setRecoveryStatus] = useState<any>(null)
 
   // Admin state
   const [auditLogs, setAuditLogs] = useState<any[]>([])
@@ -32,7 +30,7 @@ function App() {
   const [snapshots, setSnapshots] = useState<string[]>([])
 
   // Settings state
-  const [tgConfig, setTgConfig] = useState({ tg_token: "", tg_chat_id: "" })
+  const [tgConfig, setTgConfig] = useState({ tg_token: "", tg_chat_id: "", tg_token_configured: false })
 
   // Shared form inputs
   const [inputs, setInputs] = useState({ port: "", proto: "", action: "allow", banIp: "", ruleIp: "", user: "", pass: "" })
@@ -68,15 +66,30 @@ function App() {
   }
 
   const apiAction = async (url: string, method: string, body?: any) => {
-    if (testTime > 0) {
-      alert("Cannot modify firewall rules while a test is active. Please confirm or wait for rollback.")
-      return
-    }
     setApiLoading(true)
-    const res = await fetch(url, { method, headers: authHeaders, body: body ? JSON.stringify(body) : null })
-    if (res.ok) fetchData()
-    else alert("Action failed")
-    setApiLoading(false)
+    try {
+      const res = await fetch(url, { method, headers: authHeaders, body: body ? JSON.stringify(body) : null })
+      if (res.ok) {
+        fetchData()
+        return
+      }
+
+      let error: any = {}
+      try { error = await res.json() } catch { /* Keep the HTTP status as a fallback. */ }
+      if (res.status === 503 && String(error.detail || "").includes("manual_recovery_required")) {
+        setRecoveryStatus({
+          mode: "manual_recovery_required",
+          unresolved_marker: true,
+          automatic_rollback: false,
+          firewall_mutations_blocked: true,
+        })
+      }
+      alert(error.detail || `Action failed (HTTP ${res.status})`)
+    } catch {
+      alert("Action failed: the backend could not be reached.")
+    } finally {
+      setApiLoading(false)
+    }
   }
 
   const fetchData = async () => {
@@ -87,6 +100,7 @@ function App() {
       return r.json()
     }
     try {
+      setRecoveryStatus(await f("/api/reload/status"))
       setStatus(await f("/api/status"))
 
       if (view === "config") {
@@ -109,7 +123,12 @@ function App() {
       }
 
       if (view === "settings" && user.role === "superadmin") {
-        setTgConfig(await f("/api/settings") || { tg_token: "", tg_chat_id: "" })
+        const settings = await f("/api/settings")
+        setTgConfig({
+          tg_token: "",
+          tg_chat_id: settings.tg_chat_id || "",
+          tg_token_configured: Boolean(settings.tg_token_configured),
+        })
       }
     } catch (e) { console.error(e) }
   }
@@ -117,49 +136,6 @@ function App() {
   useEffect(() => { checkSetup() }, [])
   useEffect(() => { if (token) fetchProfile() }, [token])
   useEffect(() => { if (token && user) fetchData() }, [token, user, view])
-
-  useEffect(() => {
-    let interval: any
-    if (testTime > 0) interval = setInterval(() => setTestTime(prev => prev - 1), 1000)
-    else if (testTime === 0 && isTesting) {
-      setIsTesting(false)
-      alert("Test timeout! Configuration auto-reverted.")
-      fetchData()
-    }
-    return () => clearInterval(interval)
-  }, [testTime, isTesting])
-
-  const handleTestChanges = async () => {
-    if (!confirm("Apply changes and start a 60-second test?")) return
-    setTestLoading(true)
-    try {
-      const res = await fetch("/api/reload/test", { method: "POST", headers: authHeaders })
-      if (!res.ok) throw new Error()
-      setTestTime(60)
-      setIsTesting(true)
-    } catch {
-      alert("Failed to initiate test")
-      setTestTime(0)
-      setIsTesting(false)
-    } finally {
-      setTestLoading(false)
-    }
-  }
-
-  const confirmChanges = async () => {
-    setTestLoading(true)
-    try {
-      const res = await fetch("/api/reload/confirm", { method: "POST", headers: authHeaders })
-      if (!res.ok) throw new Error()
-      setTestTime(0)
-      setIsTesting(false)
-      fetchData()
-    } catch {
-      alert("Confirmation failed. Auto-rollback will occur.")
-    } finally {
-      setTestLoading(false)
-    }
-  }
 
   if (setupNeeded === true) return <SetupForm onComplete={() => setSetupNeeded(false)} />
   if (!token) return <LoginForm onLogin={handleLogin} />
@@ -176,21 +152,19 @@ function App() {
         </nav>
         <div className="header-actions">
           <div className="user-tag">{user?.username} ({user?.role})</div>
-          <button className="btn btn-test" onClick={handleTestChanges} disabled={testTime > 0}>
-            {testTime > 0 ? "Testing... (" + testTime + "s)" : "Test Rule (60s)"}
-          </button>
           <button className="btn-logout" onClick={logout}>Logout</button>
         </div>
       </header>
 
-      {testTime > 0 && (
-        <div className="test-banner">
-          <div className="test-content">
-            <h2>Testing Connection...</h2>
-            <p>If you lose access, changes will be reverted in <b>{testTime}</b> seconds.</p>
-            <button className="btn-confirm" onClick={confirmChanges}>Confirm Changes</button>
-          </div>
-        </div>
+      <aside className="recovery-notice" role="note">
+        <strong>Automatic test and rollback are unavailable.</strong> Firewall changes apply immediately;
+        verify each change yourself before applying it. No automatic rollback is provided.
+      </aside>
+      {recoveryStatus?.unresolved_marker && (
+        <aside className="recovery-alert" role="alert" aria-live="assertive">
+          <strong>Manual recovery required.</strong> An unresolved legacy recovery marker is preserved.
+          Firewall mutations are blocked until an operator inspects and resolves it.
+        </aside>
       )}
 
       <main className="dashboard-grid">
@@ -204,7 +178,6 @@ function App() {
             inputs={inputs}
             setInputs={setInputs}
             apiAction={apiAction}
-            testTime={testTime}
           />
         )}
 
@@ -227,10 +200,7 @@ function App() {
         )}
 
         {view === "snapshots" && (
-          <SnapshotsPanel
-            snapshots={snapshots}
-            apiAction={apiAction}
-          />
+          <SnapshotsPanel snapshots={snapshots} />
         )}
       </main>
 
