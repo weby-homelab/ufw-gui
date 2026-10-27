@@ -22,14 +22,16 @@ function UfwStatus({ status, diagnostics, apiAction }: UfwStatusProps) {
   const hints: string[] = Array.isArray(diagnostics?.hint_codes)
     ? diagnostics.hint_codes
     : [];
-  const legacyHints: string[] = Array.isArray(diagnostics?.hints)
-    ? diagnostics.hints
-    : [];
-
-  const hintText = (code: string, index: number) => {
+  const hintText = (code: string) => {
     const key = `diag.${code}` as MessageKey;
-    return key in en ? t(key) : legacyHints[index] || code;
+    return key in en ? t(key) : t("diag.unknown");
   };
+  const statusMessageKey = status?.error_code
+    ? (`ufw.error_${status.error_code}` as MessageKey)
+    : "ufw.unavailable_default";
+  const statusMessage = statusMessageKey in en
+    ? t(statusMessageKey)
+    : t("ufw.unavailable_default");
 
   return (
     <section className="glass-card">
@@ -45,11 +47,11 @@ function UfwStatus({ status, diagnostics, apiAction }: UfwStatusProps) {
       </h3>
       {isUnavailable && (
         <div className="diagnostic-box" role="alert">
-          <p>{status?.__error || t("ufw.unavailable_default")}</p>
+          <p>{statusMessage}</p>
           {hints.length > 0 && (
             <ul>
               {hints.map((code, index) => (
-                <li key={code}>{hintText(code, index)}</li>
+                <li key={`${code}-${index}`}>{hintText(code)}</li>
               ))}
             </ul>
           )}

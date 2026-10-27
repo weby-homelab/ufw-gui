@@ -64,14 +64,20 @@ export const en = {
   "ufw.disable": "Disable UFW",
   "ufw.resolve_first": "Resolve the UFW connection problem first",
   "ufw.unavailable_default": "The backend could not read the host firewall.",
+  "ufw.error_ufw_command_failed": "The UFW status command failed.",
+  "ufw.error_ufw_command_unavailable": "The UFW command is unavailable in the container.",
+  "ufw.error_ufw_status_unrecognized": "The UFW status output could not be recognized.",
   "diag.ufw_binary_missing":
     "The ufw binary is missing from the container image; use an official image built after 1.6.3 or rebuild from this repository.",
   "diag.ufw_config_missing":
     "The host /etc/ufw directory is not mounted. Add the volume '/etc/ufw:/etc/ufw' and restart the container.",
-  "diag.ufw_config_not_mounted":
-    "/etc/ufw exists in the container but is not a host bind mount. Rules shown here may not match the host firewall.",
+  "diag.ufw_config_not_mountpoint":
+    "/etc/ufw exists in the container but is not a mount point. Check the volume entry in docker-compose.yml.",
+  "diag.net_admin_missing":
+    "The container process lacks NET_ADMIN. Add NET_ADMIN under cap_add in docker-compose.yml and recreate the container.",
   "diag.fail2ban_socket_missing":
     "The Fail2Ban socket is not mounted; Fail2Ban status will be unavailable. Mount '/var/run/fail2ban/fail2ban.sock' to enable it.",
+  "diag.unknown": "An integration check failed. Review the server diagnostics.",
   "quick.title": "Quick Actions",
   "quick.port_proto": "Port & Protocol",
   "quick.any": "Any",
@@ -187,14 +193,20 @@ export const uk: Dictionary = {
   "ufw.disable": "Вимкнути UFW",
   "ufw.resolve_first": "Спочатку усуньте проблему з'єднання з UFW",
   "ufw.unavailable_default": "Бекенд не зміг прочитати хост-фаєрвол.",
+  "ufw.error_ufw_command_failed": "Не вдалося виконати команду перевірки статусу UFW.",
+  "ufw.error_ufw_command_unavailable": "У контейнері недоступна команда UFW.",
+  "ufw.error_ufw_status_unrecognized": "Не вдалося розпізнати вивід статусу UFW.",
   "diag.ufw_binary_missing":
     "Утиліта ufw відсутня в образі контейнера; використайте офіційний образ після 1.6.3 або зберіть його з цього репозиторію.",
   "diag.ufw_config_missing":
     "Каталог /etc/ufw хоста не змонтовано. Додайте том '/etc/ufw:/etc/ufw' і перезапустіть контейнер.",
-  "diag.ufw_config_not_mounted":
-    "/etc/ufw існує в контейнері, але не є bind-монтуванням хоста. Показані правила можуть не відповідати хост-фаєрволу.",
+  "diag.ufw_config_not_mountpoint":
+    "/etc/ufw існує в контейнері, але не є точкою монтування. Перевірте запис тому в docker-compose.yml.",
+  "diag.net_admin_missing":
+    "Процесу контейнера бракує NET_ADMIN. Додайте NET_ADMIN у cap_add у docker-compose.yml та пересоздайте контейнер.",
   "diag.fail2ban_socket_missing":
     "Сокет Fail2Ban не змонтовано; статус Fail2Ban буде недоступний. Змонтуйте '/var/run/fail2ban/fail2ban.sock', щоб увімкнути його.",
+  "diag.unknown": "Перевірка інтеграції не пройшла. Перегляньте діагностику сервера.",
   "quick.title": "Швидкі дії",
   "quick.port_proto": "Порт і протокол",
   "quick.any": "Будь-який",
@@ -300,14 +312,20 @@ export const zhCN: Dictionary = {
   "ufw.disable": "禁用 UFW",
   "ufw.resolve_first": "请先解决 UFW 连接问题",
   "ufw.unavailable_default": "后端无法读取主机防火墙。",
+  "ufw.error_ufw_command_failed": "UFW 状态命令执行失败。",
+  "ufw.error_ufw_command_unavailable": "容器中无法使用 UFW 命令。",
+  "ufw.error_ufw_status_unrecognized": "无法识别 UFW 状态输出。",
   "diag.ufw_binary_missing":
     "容器镜像中缺少 ufw 可执行文件；请使用 1.6.3 之后的官方镜像，或从本仓库重新构建。",
   "diag.ufw_config_missing":
     "主机的 /etc/ufw 目录未挂载。请添加卷 '/etc/ufw:/etc/ufw' 并重启容器。",
-  "diag.ufw_config_not_mounted":
-    "容器中存在 /etc/ufw，但它不是主机绑定挂载。此处显示的规则可能与主机防火墙不一致。",
+  "diag.ufw_config_not_mountpoint":
+    "容器中存在 /etc/ufw，但它不是挂载点。请检查 docker-compose.yml 中的卷配置。",
+  "diag.net_admin_missing":
+    "容器进程缺少 NET_ADMIN。请在 docker-compose.yml 的 cap_add 中添加 NET_ADMIN 并重新创建容器。",
   "diag.fail2ban_socket_missing":
     "Fail2Ban 套接字未挂载，Fail2Ban 状态将不可用。请挂载 '/var/run/fail2ban/fail2ban.sock' 以启用。",
+  "diag.unknown": "某项集成检查未通过。请查看服务器诊断信息。",
   "quick.title": "快捷操作",
   "quick.port_proto": "端口与协议",
   "quick.any": "任意",
@@ -377,16 +395,41 @@ const dictionaries: Record<Language, Dictionary> = {
 
 const STORAGE_KEY = "ufw_language";
 
-function detectLanguage(): Language {
-  if (typeof window === "undefined") return "en";
-  const saved = window.localStorage.getItem(STORAGE_KEY);
+export function detectLanguage(
+  storage: Pick<Storage, "getItem"> | null,
+  browserLanguage: string,
+): Language {
+  let saved: string | null = null;
+  try {
+    saved = storage?.getItem(STORAGE_KEY) ?? null;
+  } catch {
+    // Storage can be disabled by browser privacy settings or sandbox policy.
+  }
   if (saved && LANGUAGES.some((language) => language.id === saved)) {
     return saved as Language;
   }
-  const browserLanguage = window.navigator.language.toLowerCase();
-  if (browserLanguage.startsWith("zh")) return "zh-CN";
-  if (browserLanguage.startsWith("uk")) return "uk";
+  const normalizedLanguage = browserLanguage.toLowerCase();
+  if (normalizedLanguage.startsWith("zh")) return "zh-CN";
+  if (normalizedLanguage.startsWith("uk")) return "uk";
   return "en";
+}
+
+function detectBrowserLanguage(): Language {
+  if (typeof window === "undefined") return "en";
+  try {
+    return detectLanguage(window.localStorage, window.navigator.language);
+  } catch {
+    // Accessing the localStorage property itself may throw in opaque origins.
+    return detectLanguage(null, window.navigator.language);
+  }
+}
+
+function persistLanguage(language: Language): void {
+  try {
+    window.localStorage.setItem(STORAGE_KEY, language);
+  } catch {
+    // The active React state remains usable for this page session.
+  }
 }
 
 function interpolate(
@@ -411,11 +454,11 @@ interface I18nValue {
 const I18nContext = createContext<I18nValue | null>(null);
 
 export function I18nProvider({ children }: { children: ReactNode }) {
-  const [language, setLanguageState] = useState<Language>(detectLanguage);
+  const [language, setLanguageState] = useState<Language>(detectBrowserLanguage);
 
   useEffect(() => {
     document.documentElement.lang = language;
-    window.localStorage.setItem(STORAGE_KEY, language);
+    persistLanguage(language);
   }, [language]);
 
   const setLanguage = useCallback((next: Language) => {

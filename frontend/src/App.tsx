@@ -80,7 +80,10 @@ function App() {
 
       let error: any = {}
       try { error = await res.json() } catch { /* Keep the HTTP status as a fallback. */ }
-      if (res.status === 503 && String(error.detail || "").includes("manual_recovery_required")) {
+      const requiresManualRecovery =
+        res.status === 503 &&
+        String(error.detail || "").includes("manual_recovery_required")
+      if (requiresManualRecovery) {
         setRecoveryStatus({
           mode: "manual_recovery_required",
           unresolved_marker: true,
@@ -88,7 +91,11 @@ function App() {
           firewall_mutations_blocked: true,
         })
       }
-      alert(error.detail || t("alert.action_failed", { status: res.status }))
+      alert(
+        requiresManualRecovery
+          ? t("app.manual_recovery_body")
+          : t("alert.action_failed", { status: res.status }),
+      )
     } catch {
       alert(t("alert.backend_unreachable"))
     } finally {
@@ -103,7 +110,7 @@ function App() {
       if (r.status === 401) { logout(); return {} }
       const data = await r.json().catch(() => ({}))
       if (!r.ok) {
-        return { ...data, __error: data.detail || `Request failed (HTTP ${r.status})` }
+        return { ...data, __error: `Request failed (HTTP ${r.status})` }
       }
       return data
     }
