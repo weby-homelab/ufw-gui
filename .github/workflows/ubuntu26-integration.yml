@@ -63,6 +63,27 @@ jobs:
           sudo ufw status numbered | tee /tmp/ufw-ci-after-delete
           ! grep -q "49152/tcp" /tmp/ufw-ci-after-delete
           grep -q "49151/tcp" /tmp/ufw-ci-after-delete
+      - name: Verify snapshot restore refuses a real bind mount
+        run: |
+          set -eu
+          sudo sh -c 'printf "snapshot-test-sentinel\\n" > /etc/ufw/ci-snapshot-sentinel'
+          sudo sha256sum /etc/ufw/user.rules /etc/ufw/ci-snapshot-sentinel > /tmp/ufw-snapshot-before
+          docker exec -i ufw-gui-ci python - <<'PY'
+          import asyncio
+          import os
+          from backend.services.filesystem_service import UFW_BACKUP_DIR, restore_snapshot
+
+          assert os.path.ismount("/etc/ufw")
+          os.makedirs(os.path.join(UFW_BACKUP_DIR, "ci-snapshot"), exist_ok=True)
+          try:
+              asyncio.run(restore_snapshot("ci-snapshot"))
+          except RuntimeError as exc:
+              assert "mounted /etc/ufw" in str(exc), str(exc)
+          else:
+              raise AssertionError("snapshot restoration did not refuse mounted /etc/ufw")
+          PY
+          sudo sha256sum --check /tmp/ufw-snapshot-before
+          sudo rm /etc/ufw/ci-snapshot-sentinel
       - name: Verify bind-mounted host firewall survives interrupted rollback
         run: |
           sudo sha256sum /etc/ufw/user.rules > /tmp/ufw-rules-before
