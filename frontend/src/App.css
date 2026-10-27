@@ -13,6 +13,8 @@ body { margin: 0; background-color: var(--bg-color); color: var(--text-main); fo
 .btn-logout:hover { background: var(--accent-danger-bg); border-color: var(--accent-danger); color: var(--accent-danger); }
 .btn-reload { background: #fff; color: #000; padding: 10px; border-radius: 8px; border: none; cursor: pointer; font-weight: 600; width: 100%; transition: 0.2s; }
 .btn-reload:hover { background: var(--accent-success); color: #fff; }
+.btn-reload:disabled, .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn-reload:disabled:hover { background: #fff; color: #000; }
 .btn-success { background: var(--accent-success); color: #000; padding: 10px; border-radius: 8px; border: none; cursor: pointer; font-weight: 600; flex: 1; transition: 0.2s; }
 .btn-success:hover { opacity: 0.8; }
 .btn-danger { background: var(--accent-danger); color: #fff; padding: 10px; border-radius: 8px; border: none; cursor: pointer; font-weight: 600; flex: 1; transition: 0.2s; }
@@ -67,6 +69,10 @@ body { margin: 0; background-color: var(--bg-color); color: var(--text-main); fo
 
 .text-success { color: var(--accent-success); }
 .text-danger { color: var(--accent-danger); }
+.text-warning { color: #ffc107; }
+.diagnostic-box { margin-top: 10px; padding: 10px 12px; border: 1px solid var(--accent-danger); border-radius: 8px; background: var(--accent-danger-bg); font-size: 0.85em; line-height: 1.45; }
+.diagnostic-box p { margin: 0 0 6px; }
+.diagnostic-box ul { margin: 0; padding-left: 18px; }
 .empty { opacity: 0.4; font-style: italic; display: block; padding: 10px 0; }
 .footer { text-align: center; opacity: 0.3; font-size: 0.85em; margin-top: 30px; padding-bottom: 20px; }
 h2 { margin-top: 0; font-weight: 500; font-size: 1.3em; }

@@ -155,15 +155,46 @@ characters and at most 72 UTF-8 bytes; existing accounts are not changed.
 ---
 
 ## 📋 System Requirements
-- **OS:** Ubuntu 22.04+, Debian 11+, AlmaLinux 9+.
+- **OS:** Ubuntu 22.04–26.04, Debian 11+, AlmaLinux 9+.
 - **Dependencies:** `docker`, `docker-compose`, `ufw`, `fail2ban`.
-- **Access:** `root` privileges (NET_ADMIN & SYS_ADMIN capabilities) for the backend container.
+- **Access:** `root` privileges and the capabilities listed in `docker-compose.yml` (`NET_ADMIN` is required) for the backend container.
+- **Verified image:** `webyhomelab/ufw-gui:1.6.3` and newer install `iptables` explicitly and use direct bcrypt instead of the unmaintained passlib layer.
 
 ### ⚠️ Docker & Host Firewall Integration (Must Read)
 - **Host Firewall Engine:** `UFW` and `Fail2Ban` **must be installed and actively running on the Host OS**, not inside the container.
 - **How it works:** The container runs in `network_mode: host` to directly access and manage the host's network interfaces and iptables rules. The backend executes `ufw` commands within the container's namespace to manipulate the host's firewall rules (via `/etc/ufw` which is mounted from the host).
 - **Log Monitoring:** Packet drop statistics and security logs are gathered by mounting `/var/log` from the Host OS (as read-only). The container parses the host's `/var/log/ufw.log` and `/var/log/fail2ban.log`.
 - **Fail2Ban Management:** The container connects to the host's Fail2Ban daemon via the mounted socket `/var/run/fail2ban/fail2ban.sock`.
+
+### 🩺 UFW panel is empty or shows "unavailable"
+An empty panel is usually a container integration problem, not an empty firewall.
+
+1. Check the host firewall first:
+   ```bash
+   sudo ufw status verbose
+   ```
+2. Check the same command inside the container:
+   ```bash
+   docker exec ufw-gui ufw status verbose
+   ```
+   If this fails with a permission error, the container is missing `NET_ADMIN`,
+   `network_mode: host`, or the `/etc/ufw` bind mount.
+3. Compare `docker compose config` with the bundled `docker-compose.yml`. The
+   required settings are `network_mode: host`, `cap_add: [NET_ADMIN, ...]` and
+   `volumes: ["/etc/ufw:/etc/ufw"]`.
+4. Open the authenticated `/api/diagnostics` endpoint (the dashboard shows the
+   same hints) or read `docker logs ufw-gui`. Version 1.6.3+ reports missing
+   binary, missing mount and missing Fail2Ban socket explicitly.
+5. On Ubuntu 26.04, verify that the host itself can add and remove a temporary
+   rule before blaming the GUI:
+   ```bash
+   sudo ufw allow 49151/tcp && sudo ufw delete allow 49151/tcp
+   ```
+
+The old `AttributeError: module 'bcrypt' has no attribute '__about__'` log line
+came from passlib 1.7.4 and bcrypt 4.1+. It is removed in 1.6.3: passwords are
+now hashed and verified with bcrypt directly, and existing bcrypt hashes remain
+valid.
 
 ---
 <br>

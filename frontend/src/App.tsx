@@ -15,6 +15,7 @@ function App() {
 
   // Dashboard state
   const [status, setStatus] = useState<any>(null)
+  const [diagnostics, setDiagnostics] = useState<any>(null)
   const [rules, setRules] = useState<any[]>([])
   const [bannedIps, setBannedIps] = useState<any[]>([])
   const [fwLogs, setFwLogs] = useState<any[]>([])
@@ -97,11 +98,16 @@ function App() {
     const f = async (u: string) => {
       const r = await fetch(u, { headers: authHeaders })
       if (r.status === 401) { logout(); return {} }
-      return r.json()
+      const data = await r.json().catch(() => ({}))
+      if (!r.ok) {
+        return { ...data, __error: data.detail || `Request failed (HTTP ${r.status})` }
+      }
+      return data
     }
     try {
       setRecoveryStatus(await f("/api/reload/status"))
       setStatus(await f("/api/status"))
+      setDiagnostics(await f("/api/diagnostics"))
 
       if (view === "config") {
         setRules((await f("/api/rules")).rules || [])
@@ -171,6 +177,7 @@ function App() {
         {view === "config" && (
           <Dashboard
             status={status}
+            diagnostics={diagnostics}
             rules={rules}
             bannedIps={bannedIps}
             fwLogs={fwLogs}

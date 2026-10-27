@@ -30,6 +30,7 @@ from backend.services.recovery_guard import (
     has_unresolved_recovery_marker,
     recovery_state_lock,
 )
+from backend.services.system_diagnostics import collect_diagnostics
 
 # --- File Whitelist (breaks CodeQL taint flow) ---
 ALLOWED_FILES: dict[str, str] = {}
@@ -106,6 +107,9 @@ async def revalidate_persistent_storage() -> None:
 async def lifespan(app: FastAPI):
     app.state.storage_validated = False
     await ensure_persistent_storage_validated(app)
+    diagnostics = collect_diagnostics()
+    for hint in diagnostics["hints"]:
+        logger.warning("UFW integration: %s", hint)
 
     # Start background log parser for statistics
     parser_task = asyncio.create_task(start_log_parser())
