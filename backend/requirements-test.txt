@@ -1,0 +1,2 @@
+# FastAPI's TestClient requires httpx, which is not a runtime dependency.
+httpx==0.28.1

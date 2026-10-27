@@ -1,8 +1,9 @@
 """
 UFW-GUI - Validation and sanitization utilities
 """
-import re
+
 import ipaddress
+import re
 
 
 def is_valid_ip(ip: str) -> bool:
@@ -22,17 +23,16 @@ def is_valid_ip(ip: str) -> bool:
 def is_valid_port(port: str) -> bool:
     if not port:
         return True
-    if not re.match(r"^\d+(:\d+)?$", port):
+    if not re.fullmatch(r"[0-9]+(:[0-9]+)?", port):
         return False
     parts = port.split(":")
-    for p in parts:
-        val = int(p)
-        if val < 1 or val > 65535:
-            return False
-    if len(parts) == 2:
-        if int(parts[0]) > int(parts[1]):
-            return False
-    return True
+    try:
+        values = [int(part) for part in parts]
+    except ValueError:
+        return False
+    if any(value < 1 or value > 65535 for value in values):
+        return False
+    return len(values) != 2 or values[0] <= values[1]
 
 
 def is_valid_proto(proto: str) -> bool:
@@ -42,11 +42,21 @@ def is_valid_proto(proto: str) -> bool:
 
 
 def is_valid_username(username: str) -> bool:
-    return bool(re.match(r"^[a-zA-Z0-9_\-]+$", username))
+    return bool(re.fullmatch(r"[a-zA-Z0-9_-]+", username))
 
 
 def is_valid_jail(jail: str) -> bool:
-    return bool(re.match(r"^[a-zA-Z0-9_\-]+$", jail))
+    return bool(re.fullmatch(r"[a-zA-Z0-9_-]+", jail))
+
+
+def is_valid_new_password(password: str) -> bool:
+    """Bound new bcrypt passwords without changing verification of legacy users."""
+    if not 12 <= len(password) <= 72:
+        return False
+    try:
+        return len(password.encode("utf-8")) <= 72
+    except UnicodeEncodeError:
+        return False
 
 
 def validate_args(args) -> list:

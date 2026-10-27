@@ -1,31 +1,24 @@
 interface SnapshotsPanelProps {
   snapshots: string[];
-  apiAction: (url: string, method: string, body?: any) => void;
 }
 
-function SnapshotsPanel({ snapshots, apiAction }: SnapshotsPanelProps) {
+function SnapshotsPanel({ snapshots }: SnapshotsPanelProps) {
   return (
     <div className="wide-pane">
       <section className="glass-card">
-        <h2>Time Machine (Snapshots)</h2>
+        <h2>Snapshots (Manual Review Only)</h2>
+        <p className="recovery-alert" role="note">
+          Snapshot creation and restore are disabled. Existing snapshots are retained for manual inspection.
+        </p>
         <div className="snap-list">
           {snapshots.map((s: string) => (
             <div key={s} className="snap-item">
               <span>{s}</span>
-              <button
-                className="btn-reload"
-                onClick={() => {
-                  if (confirm("Restore?")) apiAction("/api/snapshots/restore/" + s, "POST");
-                }}
-                style={{ background: "#ffaa00" }}
-              >
-                Restore
-              </button>
             </div>
           ))}
           {snapshots.length === 0 && (
             <p className="empty">
-              No snapshots recorded yet. Try adding a rule.
+              No snapshots are available for manual review.
             </p>
           )}
         </div>

@@ -2,29 +2,38 @@
 UFW-GUI - FastAPI Application Entry Point
 Imports and registers all routers, configures middleware, serves frontend.
 """
-import os
-import asyncio
-from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
 
-from backend.services.database_service import init_db, log_action, shutdown_db
-from backend.services.filesystem_service import init_dirs, get_test_state, get_test_rollback_path, clear_test_state
-from backend.services.log_parser_service import start_log_parser
-from backend.services.subprocess_service import run_ufw
+import asyncio
+import logging
+import os
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
+
+from backend.routers.admin_router import router as admin_router
+
 # --- Import Routers ---
 from backend.routers.auth_router import router as auth_router
-from backend.routers.ufw_router import router as ufw_router
 from backend.routers.fail2ban_router import router as f2b_router
 from backend.routers.logs_router import router as logs_router
-from backend.routers.admin_router import router as admin_router
 from backend.routers.reload_router import router as reload_router
-import shutil
+from backend.routers.ufw_router import router as ufw_router
+from backend.services.database_service import init_db, shutdown_db
+from backend.services.filesystem_service import init_dirs
+from backend.services.log_parser_service import start_log_parser
+from backend.services.recovery_guard import (
+    has_unresolved_recovery_marker,
+    recovery_state_lock,
+)
 
 # --- File Whitelist (breaks CodeQL taint flow) ---
 ALLOWED_FILES: dict[str, str] = {}
+logger = logging.getLogger(__name__)
 
 
 def _build_file_whitelist():
@@ -48,45 +57,69 @@ def _build_file_whitelist():
 _build_file_whitelist()
 
 
-async def check_and_rollback_on_startup():
-    state = get_test_state()
-    if state.get("status") == "testing":
-        import logging
-        logging.info("Interrupted firewall test detected. Performing auto-rollback...")
-        fallback_path = get_test_rollback_path()
-        if os.path.exists(fallback_path):
-            try:
-                if os.path.exists("/etc/ufw"):
-                    await asyncio.to_thread(shutil.rmtree, "/etc/ufw")
-                await asyncio.to_thread(shutil.copytree, fallback_path, "/etc/ufw")
-                await run_ufw("reload")
-                log_action("SYSTEM", "CRASH_ROLLBACK", "Detected interrupted test. Auto-reverted UFW config.")
-                logging.info("Auto-rollback successful.")
-            except Exception as e:
-                logging.error(f"Failed to perform startup rollback: {str(e)}")
-        clear_test_state()
+async def inspect_recovery_state_on_startup():
+    logger = logging.getLogger(__name__)
+    async with recovery_state_lock():
+        unresolved = has_unresolved_recovery_marker()
+
+    if unresolved:
+        logger.error(
+            "Unresolved firewall recovery marker found; automatic recovery is disabled. "
+            "Preserving marker and configuration; operator manual recovery is required."
+        )
+        return
+    logger.info(
+        "No unresolved recovery marker; automatic firewall recovery is disabled."
+    )
+
+
+async def ensure_persistent_storage_validated(app: FastAPI) -> None:
+    """Validate trusted storage before every request, including with lifespan off."""
+    async with app.state.storage_validation_lock:
+        app.state.storage_validated = False
+        if not app.state.storage_initialized:
+            if app.state.storage_initialization_attempted:
+                raise RuntimeError(
+                    "Persistent storage initialization previously failed"
+                )
+            # Never bind a newly appeared database after a failed initial check
+            # in this process. An operator must inspect storage and restart it.
+            app.state.storage_initialization_attempted = True
+            init_dirs()
+            init_db()
+            # Keep the startup binding even if marker inspection fails: never
+            # silently trust a replacement database later in this process.
+            app.state.storage_initialized = True
+            await inspect_recovery_state_on_startup()
+        else:
+            await revalidate_persistent_storage()
+        app.state.storage_validated = True
+
+
+async def revalidate_persistent_storage() -> None:
+    """Check the startup-bound database and marker without rebinding storage."""
+    async with recovery_state_lock():
+        has_unresolved_recovery_marker()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Initialize directories and database on startup
-    init_dirs()
-    init_db()
-
-    # Check for interrupted test and roll back if needed
-    await check_and_rollback_on_startup()
+    app.state.storage_validated = False
+    await ensure_persistent_storage_validated(app)
 
     # Start background log parser for statistics
     parser_task = asyncio.create_task(start_log_parser())
-    yield
-
-    # Clean up parser task on shutdown
-    parser_task.cancel()
     try:
-        await parser_task
-    except asyncio.CancelledError:
-        pass
-    shutdown_db()
+        yield
+    finally:
+        # Clean up parser task on shutdown
+        parser_task.cancel()
+        try:
+            await parser_task
+        except asyncio.CancelledError:
+            pass
+        shutdown_db()
+        app.state.storage_validated = False
 
 
 app = FastAPI(
@@ -95,6 +128,43 @@ app = FastAPI(
     version="1.6.0",
     lifespan=lifespan,
 )
+app.state.storage_validation_lock = asyncio.Lock()
+app.state.storage_validated = False
+app.state.storage_initialized = False
+app.state.storage_initialization_attempted = False
+
+
+@app.middleware("http")
+async def validate_storage_before_serving(
+    request: Request,
+    call_next,
+) -> Response:
+    try:
+        await ensure_persistent_storage_validated(request.app)
+    except (HTTPException, OSError, RuntimeError) as exc:
+        logger.error("Persistent storage validation failed (%s).", type(exc).__name__)
+        return JSONResponse(
+            status_code=503,
+            content={"detail": "Persistent recovery storage is unavailable"},
+        )
+    return await call_next(request)
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_error_without_input(
+    _request: Request,
+    exc: RequestValidationError,
+) -> JSONResponse:
+    # Validation inputs can contain passwords, Telegram tokens, or other secrets.
+    errors = [
+        {key: value for key, value in error.items() if key != "input"}
+        for error in exc.errors()
+    ]
+    return JSONResponse(
+        status_code=422,
+        content=jsonable_encoder({"detail": errors}),
+    )
+
 
 # --- CORS Configuration ---
 allowed_origins = os.getenv("ALLOWED_ORIGINS", "").split(",")
@@ -109,10 +179,13 @@ app.add_middleware(
     allow_headers=["Authorization", "Content-Type", "Accept"],
 )
 
+
 # --- Register Routers ---
 @app.get("/api/health", tags=["Health"])
 async def health_check():
+    """Report validated storage health, not firewall mutation readiness."""
     return {"status": "ok"}
+
 
 app.include_router(auth_router)
 app.include_router(ufw_router)

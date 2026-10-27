@@ -11,10 +11,15 @@ function SettingsPanel({ tgConfig, setTgConfig, apiAction }: SettingsPanelProps)
         <h2>Settings</h2>
         <div className="add-form-col">
           <label>Telegram Bot Token</label>
+          <p role="note">
+            {tgConfig.tg_token_configured
+              ? "A token is configured. Leave this blank to keep it unchanged, or enter a replacement. The saved token is never returned by the API."
+              : "No token is configured. Enter one to enable Telegram alerts."}
+          </p>
           <input
             value={tgConfig.tg_token}
             onChange={(e) => setTgConfig({ ...tgConfig, tg_token: e.target.value })}
-            placeholder="Token"
+            placeholder={tgConfig.tg_token_configured ? "Leave blank to keep current token" : "Telegram bot token"}
           />
           <label>Telegram Chat ID</label>
           <input

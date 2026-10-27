@@ -1,31 +1,41 @@
 """
 UFW-GUI - UFW firewall router
 """
-from fastapi import APIRouter, Body, Depends, HTTPException
+
+import logging
 import re
 
+from fastapi import APIRouter, Body, Depends, HTTPException
+
 from backend.services.auth_service import get_current_user
-from backend.services.subprocess_service import run_ufw
-from backend.services.filesystem_service import create_snapshot
 from backend.services.database_service import log_action
+from backend.services.recovery_guard import protect_firewall_mutation
+from backend.services.subprocess_service import run_ufw
 from backend.utils.validators import is_valid_ip, is_valid_port, is_valid_proto
+
+current_user_dependency = Depends(get_current_user)
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["UFW"])
 
 
 @router.get("/status")
-async def get_status(user=Depends(get_current_user)):
+async def get_status(user=current_user_dependency):
     try:
         status = await run_ufw("status")
         return {"status": "running" if "Status: active" in status else "inactive"}
-    except Exception:
-        return {"status": "unknown"}
+    except HTTPException:
+        raise
+    except OSError as exc:
+        logger.warning("Could not read UFW status (%s).", type(exc).__name__)
+        return {"status": "unknown", "error": "UFW status is unavailable."}
 
 
 @router.post("/toggle")
+@protect_firewall_mutation
 async def toggle_ufw(
     action: str = Body(..., embed=True),
-    user=Depends(get_current_user),
+    user=current_user_dependency,
 ):
     if action not in ["enable", "disable", "reload"]:
         raise HTTPException(status_code=400, detail="Invalid action")
@@ -35,7 +45,7 @@ async def toggle_ufw(
 
 
 @router.get("/rules")
-async def get_rules(user=Depends(get_current_user)):
+async def get_rules(user=current_user_dependency):
     try:
         output = await run_ufw("status", "numbered")
         rules = []
@@ -43,25 +53,31 @@ async def get_rules(user=Depends(get_current_user)):
         for line in output.split("\n"):
             match = re.match(pattern, line)
             if match:
-                rules.append({
-                    "id": match.group(1),
-                    "to": match.group(2).strip(),
-                    "action": match.group(3).strip(),
-                    "from": match.group(4).strip(),
-                    "raw": line,
-                })
+                rules.append(
+                    {
+                        "id": match.group(1),
+                        "to": match.group(2).strip(),
+                        "action": match.group(3).strip(),
+                        "from": match.group(4).strip(),
+                        "raw": line,
+                    }
+                )
         return {"rules": rules}
-    except Exception:
+    except HTTPException:
+        raise
+    except OSError as exc:
+        logger.warning("Could not read UFW rules (%s).", type(exc).__name__)
         return {"rules": [], "error": "Failed to fetch rules. Check system logs."}
 
 
 @router.post("/rule")
+@protect_firewall_mutation
 async def add_rule(
     action: str = Body(...),
     port: str = Body(""),
     proto: str = Body(""),
     ip: str = Body(""),
-    user=Depends(get_current_user),
+    user=current_user_dependency,
 ):
     if action not in ["allow", "deny", "reject"]:
         raise HTTPException(status_code=400, detail="Invalid action")
@@ -72,7 +88,6 @@ async def add_rule(
     if not is_valid_proto(proto):
         raise HTTPException(status_code=400, detail="Invalid Protocol")
 
-    await create_snapshot("before_add_rule")
     args = [action]
     if ip:
         args.extend(["from", ip])
@@ -86,37 +101,40 @@ async def add_rule(
             args.append(target)
 
     res = await run_ufw(*args)
-    log_action(user["username"], "ADD_RULE", f"Action: {action}, Target: {port}, IP: {ip}")
+    log_action(
+        user["username"], "ADD_RULE", f"Action: {action}, Target: {port}, IP: {ip}"
+    )
     return {"result": res}
 
 
 @router.delete("/rule/{rule_id}")
-async def delete_rule(rule_id: str, user=Depends(get_current_user)):
+@protect_firewall_mutation
+async def delete_rule(rule_id: str, user=current_user_dependency):
     if not rule_id.isdigit():
         raise HTTPException(status_code=400, detail="Invalid ID")
-    await create_snapshot("before_del_rule")
     res = await run_ufw("--force", "delete", rule_id)
     log_action(user["username"], "DELETE_RULE", f"ID: {rule_id}")
     return {"result": res}
 
 
 @router.post("/ban")
+@protect_firewall_mutation
 async def ban_ip(
     ip: str = Body(..., embed=True),
-    user=Depends(get_current_user),
+    user=current_user_dependency,
 ):
     if not ip:
         raise HTTPException(status_code=400, detail="IP is required")
     if not is_valid_ip(ip):
         raise HTTPException(status_code=400, detail="Invalid IP format")
-    await create_snapshot("before_ban")
     res = await run_ufw("insert", "1", "deny", "from", ip)
     log_action(user["username"], "BAN_IP", ip)
     return {"result": res}
 
 
 @router.post("/reload")
-async def reload_firewall(user=Depends(get_current_user)):
+@protect_firewall_mutation
+async def reload_firewall(user=current_user_dependency):
     res = await run_ufw("reload")
     log_action(user["username"], "RELOAD", "System")
     return {"result": res}

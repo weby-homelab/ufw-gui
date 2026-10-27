@@ -1,85 +1,54 @@
-"""
-UFW-GUI - Test reload router
-Handles 60-second test mode with auto-rollback
-"""
+"""Recovery-status endpoints; automatic test/rollback mode is disabled."""
+
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
-import shutil
-import os
-import asyncio
-from datetime import datetime
 
 from backend.services.auth_service import get_current_user
-from backend.services.subprocess_service import run_ufw
-from backend.services.filesystem_service import (
-    save_test_rollback,
-    get_test_rollback_path,
-    UFW_BACKUP_DIR,
-    get_test_state,
-    save_test_state,
-    clear_test_state,
+from backend.services.recovery_guard import (
+    MANUAL_RECOVERY_REQUIRED,
+    has_unresolved_recovery_marker,
+    protect_firewall_mutation,
+    recovery_state_lock,
 )
-from backend.services.database_service import log_action
 
-router = APIRouter(prefix="/api/reload", tags=["Test Mode"])
+current_user_dependency = Depends(get_current_user)
+
+router = APIRouter(prefix="/api/reload", tags=["Recovery"])
+
+TEST_MODE_UNAVAILABLE = (
+    "test_mode_unavailable: automatic rollback is disabled; firewall changes "
+    "apply immediately and must be verified by the operator."
+)
 
 
-rollback_task_ref = None
+@router.get("/status")
+async def get_recovery_status(user=current_user_dependency):
+    async with recovery_state_lock():
+        unresolved = has_unresolved_recovery_marker()
+    return {
+        "mode": "manual_recovery_required" if unresolved else "immediate_apply",
+        "unresolved_marker": unresolved,
+        "automatic_rollback": False,
+        "firewall_mutations_blocked": unresolved,
+        "detail": MANUAL_RECOVERY_REQUIRED if unresolved else TEST_MODE_UNAVAILABLE,
+    }
 
 
 async def perform_rollback():
-    try:
-        await asyncio.sleep(60)
-        state = get_test_state()
-        if state.get("status") == "testing":
-            fallback_path = get_test_rollback_path()
-            if os.path.exists(fallback_path):
-                if os.path.exists("/etc/ufw"):
-                    await asyncio.to_thread(shutil.rmtree, "/etc/ufw")
-                await asyncio.to_thread(shutil.copytree, fallback_path, "/etc/ufw")
-                await run_ufw("reload")
-                log_action("SYSTEM", "ROLLBACK", "Auto-reverted untested changes after 60s")
-            clear_test_state()
-    except asyncio.CancelledError:
-        pass
-    except Exception as e:
-        import logging
-        logging.error(f"Failed to auto-rollback firewall configuration: {str(e)}")
+    """Legacy task entrypoint retained as a side-effect-free fail-closed stub."""
+    logging.getLogger(__name__).error(
+        "Automatic firewall rollback is disabled; no files or firewall state were changed."
+    )
 
 
 @router.post("/test")
-async def reload_test(user=Depends(get_current_user)):
-    global rollback_task_ref
-
-    # Check persistent test state to block parallel tests
-    state = get_test_state()
-    if state.get("status") == "testing":
-        raise HTTPException(status_code=400, detail="Another test is already in progress")
-
-    if rollback_task_ref and not rollback_task_ref.done():
-        rollback_task_ref.cancel()
-
-    os.makedirs(UFW_BACKUP_DIR, exist_ok=True)
-    await save_test_rollback()
-
-    # Save persistent state before applying changes
-    save_test_state({"status": "testing", "started_at": datetime.now().isoformat()})
-
-    res = await run_ufw("reload")
-    log_action(user["username"], "TEST_RELOAD", "Testing firewall changes for 60s")
-
-    rollback_task_ref = asyncio.create_task(perform_rollback())
-    return {"status": "testing", "result": res}
+@protect_firewall_mutation
+async def reload_test(user=current_user_dependency):
+    raise HTTPException(status_code=503, detail=TEST_MODE_UNAVAILABLE)
 
 
 @router.post("/confirm")
-async def reload_confirm(user=Depends(get_current_user)):
-    global rollback_task_ref
-
-    state = get_test_state()
-    if state.get("status") == "testing" or (rollback_task_ref and not rollback_task_ref.done()):
-        if rollback_task_ref and not rollback_task_ref.done():
-            rollback_task_ref.cancel()
-        clear_test_state()
-        log_action(user["username"], "CONFIRM", "Changes confirmed")
-        return {"status": "confirmed"}
-    return {"status": "no_active_test"}
+@protect_firewall_mutation
+async def reload_confirm(user=current_user_dependency):
+    raise HTTPException(status_code=503, detail=TEST_MODE_UNAVAILABLE)
