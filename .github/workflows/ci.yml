@@ -36,6 +36,11 @@ jobs:
           UFW_GUI_SECRET_KEY: temporary-ci-only-secret-key-123456789
         run: python -m unittest discover -s tests -p 'test_auth_fail_closed.py' -v
 
+      - name: Test rollback failure handling
+        env:
+          UFW_GUI_SECRET_KEY: temporary-ci-only-secret-key-123456789
+        run: python -m unittest discover -s tests -p 'test_rollback_safety.py' -v
+
       - name: Lint with Ruff
         run: ruff check backend/
 

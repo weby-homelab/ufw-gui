@@ -35,12 +35,15 @@ async def perform_rollback():
         state = get_test_state()
         if state.get("status") == "testing":
             fallback_path = get_test_rollback_path()
-            if os.path.exists(fallback_path):
-                if os.path.exists("/etc/ufw"):
-                    await asyncio.to_thread(shutil.rmtree, "/etc/ufw")
-                await asyncio.to_thread(shutil.copytree, fallback_path, "/etc/ufw")
-                await run_ufw("reload")
-                log_action("SYSTEM", "ROLLBACK", "Auto-reverted untested changes after 60s")
+            if not os.path.isdir(fallback_path):
+                raise RuntimeError("Rollback backup is missing; retaining test state")
+            if os.path.ismount("/etc/ufw"):
+                raise RuntimeError("Cannot safely replace mounted /etc/ufw; retaining test state")
+            if os.path.exists("/etc/ufw"):
+                await asyncio.to_thread(shutil.rmtree, "/etc/ufw")
+            await asyncio.to_thread(shutil.copytree, fallback_path, "/etc/ufw")
+            await run_ufw("reload")
+            log_action("SYSTEM", "ROLLBACK", "Auto-reverted untested changes after 60s")
             clear_test_state()
     except asyncio.CancelledError:
         pass

@@ -57,21 +57,31 @@ _build_file_whitelist()
 
 async def check_and_rollback_on_startup():
     state = get_test_state()
-    if state.get("status") == "testing":
-        import logging
-        logging.info("Interrupted firewall test detected. Performing auto-rollback...")
-        fallback_path = get_test_rollback_path()
-        if os.path.exists(fallback_path):
-            try:
-                if os.path.exists("/etc/ufw"):
-                    await asyncio.to_thread(shutil.rmtree, "/etc/ufw")
-                await asyncio.to_thread(shutil.copytree, fallback_path, "/etc/ufw")
-                await run_ufw("reload")
-                log_action("SYSTEM", "CRASH_ROLLBACK", "Detected interrupted test. Auto-reverted UFW config.")
-                logging.info("Auto-rollback successful.")
-            except Exception as e:
-                logging.error(f"Failed to perform startup rollback: {e!s}")
-        clear_test_state()
+    if state.get("status") != "testing":
+        return
+
+    import logging
+    logger = logging.getLogger(__name__)
+    fallback_path = get_test_rollback_path()
+    if not os.path.isdir(fallback_path):
+        logger.error("Interrupted firewall test: rollback backup is missing; retaining test state.")
+        return
+    if os.path.ismount("/etc/ufw"):
+        # rmtree on a bind mount can delete host files before failing to remove
+        # the mount point. Preserve both live configuration and recovery marker.
+        logger.error("Interrupted firewall test: /etc/ufw is a mount; retaining test state.")
+        return
+
+    try:
+        if os.path.exists("/etc/ufw"):
+            await asyncio.to_thread(shutil.rmtree, "/etc/ufw")
+        await asyncio.to_thread(shutil.copytree, fallback_path, "/etc/ufw")
+        await run_ufw("reload")
+        log_action("SYSTEM", "CRASH_ROLLBACK", "Detected interrupted test. Auto-reverted UFW config.")
+    except Exception:
+        logger.exception("Failed to perform startup rollback; retaining test state.")
+        return
+    clear_test_state()
 
 
 @asynccontextmanager
