@@ -150,6 +150,8 @@ async def restore_snapshot(name: str) -> bool:
     if not os.path.exists(snap_path):
         raise FileNotFoundError("Snapshot not found")
 
+    if os.path.ismount("/etc/ufw"):
+        raise RuntimeError("Cannot safely restore a snapshot onto mounted /etc/ufw")
     if os.path.exists("/etc/ufw"):
         await asyncio.to_thread(shutil.rmtree, "/etc/ufw")
     await asyncio.to_thread(shutil.copytree, snap_path, "/etc/ufw")

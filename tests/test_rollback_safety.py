@@ -88,6 +88,18 @@ class RollbackSafetyTests(unittest.TestCase):
 
 
 class RecoveryMarkerTests(unittest.TestCase):
+
+    def test_snapshot_restore_refuses_bind_mount_before_deleting(self):
+        with tempfile.TemporaryDirectory() as directory:
+            snapshot = os.path.join(directory, "snapshot")
+            os.mkdir(snapshot)
+            with patch.object(filesystem_service, "UFW_BACKUP_DIR", directory), \
+                 patch.object(filesystem_service.os.path, "ismount", return_value=True), \
+                 patch.object(filesystem_service.asyncio, "to_thread", new_callable=AsyncMock) as operation:
+                with self.assertRaises(RuntimeError):
+                    asyncio.run(filesystem_service.restore_snapshot("snapshot"))
+                operation.assert_not_called()
+
     def test_missing_marker_is_empty(self):
         with tempfile.TemporaryDirectory() as directory:
             marker = os.path.join(directory, "state.json")
