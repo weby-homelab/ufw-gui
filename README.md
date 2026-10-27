@@ -185,9 +185,10 @@ An empty panel is usually a container integration problem, not an empty firewall
 4. Open the authenticated `/api/diagnostics` endpoint (the dashboard shows the
     same hints) or read `docker logs ufw-gui`. Version 1.6.3+ reports a missing
     UFW binary/config mount, missing `NET_ADMIN`, or missing/inaccessible
-    Fail2Ban socket explicitly. Diagnostics confirm a mount point but cannot
-    identify whether its source is the intended host path; verify that with
-    `docker compose config`.
+    Fail2Ban socket path explicitly. They verify its type and permissions, not
+    whether the daemon is listening. Diagnostics confirm a mount point but
+    cannot identify whether its source is the intended host path; verify that
+    with `docker compose config` and `fail2ban-client status` on the host.
 5. On Ubuntu 26.04, verify that the host itself can add and remove a temporary
    rule before blaming the GUI:
    ```bash

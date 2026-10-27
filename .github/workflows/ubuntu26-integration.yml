@@ -158,4 +158,4 @@ jobs:
       - if: always()
         run: |
           docker rm -f ufw-gui-ci >/dev/null 2>&1 || true
-          rm -rf "$RUNNER_TEMP/ufw-gui-data"
+          sudo rm -rf -- "$RUNNER_TEMP/ufw-gui-data"

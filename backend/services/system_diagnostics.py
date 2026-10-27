@@ -28,8 +28,8 @@ def _has_net_admin_capability() -> bool:
     return False
 
 
-def _fail2ban_socket_ready() -> bool:
-    """Require a Unix socket that the current process can read and write."""
+def _fail2ban_socket_path_accessible() -> bool:
+    """Check the socket path type and permissions, not daemon liveness."""
     try:
         metadata = os.stat(FAIL2BAN_SOCKET, follow_symlinks=False)
         return stat.S_ISSOCK(metadata.st_mode) and os.access(
@@ -45,7 +45,7 @@ def collect_diagnostics() -> dict:
     config_dir_present = os.path.isdir(UFW_CONFIG_DIR)
     config_dir_mountpoint = os.path.ismount(UFW_CONFIG_DIR)
     net_admin_available = _has_net_admin_capability()
-    fail2ban_socket_ready = _fail2ban_socket_ready()
+    fail2ban_socket_path_accessible = _fail2ban_socket_path_accessible()
 
     hints: list[tuple[str, str]] = []
     if not ufw_binary_present:
@@ -88,7 +88,7 @@ def collect_diagnostics() -> dict:
                 ),
             )
         )
-    if not fail2ban_socket_ready:
+    if not fail2ban_socket_path_accessible:
         hints.append(
             (
                 "fail2ban_socket_missing",
@@ -109,7 +109,8 @@ def collect_diagnostics() -> dict:
             "net_admin_available": net_admin_available,
         },
         "fail2ban": {
-            "socket_ready": fail2ban_socket_ready,
+            # A filesystem check cannot prove that Fail2Ban is listening.
+            "socket_path_accessible": fail2ban_socket_path_accessible,
         },
         # Codes are stable for UI translation; messages remain for API consumers.
         "hint_codes": [code for code, _message in hints],

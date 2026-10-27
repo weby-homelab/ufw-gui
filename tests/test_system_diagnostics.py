@@ -13,7 +13,11 @@ from backend.services import system_diagnostics
 
 
 def collect(
-    which="/usr/sbin/ufw", isdir=True, ismount=True, net_admin=True, socket_ready=True
+    which="/usr/sbin/ufw",
+    isdir=True,
+    ismount=True,
+    net_admin=True,
+    socket_path_accessible=True,
 ):
     with (
         patch.object(system_diagnostics.shutil, "which", return_value=which),
@@ -23,7 +27,9 @@ def collect(
             system_diagnostics, "_has_net_admin_capability", return_value=net_admin
         ),
         patch.object(
-            system_diagnostics, "_fail2ban_socket_ready", return_value=socket_ready
+            system_diagnostics,
+            "_fail2ban_socket_path_accessible",
+            return_value=socket_path_accessible,
         ),
     ):
         return system_diagnostics.collect_diagnostics()
@@ -37,19 +43,23 @@ class SystemDiagnosticsTests(unittest.TestCase):
         self.assertTrue(result["ufw"]["config_dir_present"])
         self.assertTrue(result["ufw"]["config_dir_mountpoint"])
         self.assertTrue(result["ufw"]["net_admin_available"])
-        self.assertTrue(result["fail2ban"]["socket_ready"])
+        self.assertTrue(result["fail2ban"]["socket_path_accessible"])
         self.assertEqual(result["hints"], [])
         self.assertEqual(result["hint_codes"], [])
 
     def test_missing_integration_prerequisites_report_stable_codes(self):
         result = collect(
-            which=None, isdir=False, ismount=False, net_admin=False, socket_ready=False
+            which=None,
+            isdir=False,
+            ismount=False,
+            net_admin=False,
+            socket_path_accessible=False,
         )
 
         self.assertFalse(result["ufw"]["binary_present"])
         self.assertFalse(result["ufw"]["config_dir_present"])
         self.assertFalse(result["ufw"]["net_admin_available"])
-        self.assertFalse(result["fail2ban"]["socket_ready"])
+        self.assertFalse(result["fail2ban"]["socket_path_accessible"])
         self.assertEqual(
             result["hint_codes"],
             [
@@ -89,19 +99,23 @@ class SystemDiagnosticsTests(unittest.TestCase):
         ):
             self.assertFalse(system_diagnostics._has_net_admin_capability())
 
-    def test_fail2ban_path_must_be_accessible_unix_socket(self):
+    def test_fail2ban_path_check_does_not_claim_daemon_liveness(self):
         with tempfile.TemporaryDirectory() as directory:
             path = os.path.join(directory, "fail2ban.sock")
             with patch.object(system_diagnostics, "FAIL2BAN_SOCKET", path):
                 with open(path, "w", encoding="ascii") as regular_file:
                     regular_file.write("not a socket")
-                self.assertFalse(system_diagnostics._fail2ban_socket_ready())
+                self.assertFalse(system_diagnostics._fail2ban_socket_path_accessible())
 
                 os.remove(path)
                 server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
                 try:
                     server.bind(path)
-                    self.assertTrue(system_diagnostics._fail2ban_socket_ready())
+                    # This bound socket is intentionally not listening. The
+                    # diagnostic reports path accessibility, not daemon health.
+                    self.assertTrue(
+                        system_diagnostics._fail2ban_socket_path_accessible()
+                    )
                 finally:
                     server.close()
 
