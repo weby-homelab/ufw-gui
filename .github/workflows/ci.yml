@@ -31,6 +31,15 @@ jobs:
           ruff --version
           ruff check --show-settings backend/main.py
 
+      - name: Inspect safe Ruff fixes
+        run: |
+          status=0
+          ruff check --fix --diff backend/ > /tmp/ruff-safe.patch || status=$?
+          if [ "$status" -gt 1 ]; then exit "$status"; fi
+          echo "BEGIN_RUFF_SAFE_PATCH"
+          cat /tmp/ruff-safe.patch
+          echo "END_RUFF_SAFE_PATCH"
+
       - name: Lint with Ruff
         run: ruff check backend/
 
