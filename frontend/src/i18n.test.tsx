@@ -1,4 +1,7 @@
 import { act } from "react";
+import App from "./App";
+import LoginForm from "./components/LoginForm";
+import UfwStatus from "./components/UfwStatus";
 import { useI18n, I18nProvider, detectLanguage } from "./i18n";
 import LanguageSwitcher from "./components/LanguageSwitcher";
 import { createRoot, type Root } from "react-dom/client";
@@ -17,6 +20,14 @@ function Probe() {
   );
 }
 
+function jsonResponse(body: unknown, status = 200) {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    json: async () => body,
+  };
+}
+
 describe("language preference", () => {
   let container: HTMLDivElement;
   let root: Root;
@@ -32,6 +43,7 @@ describe("language preference", () => {
     await act(async () => root.unmount());
     container.remove();
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
   it("prefers a valid saved language over the browser language", () => {
@@ -94,5 +106,177 @@ describe("language preference", () => {
     expect(container.querySelector('[data-testid="language"]')?.textContent).toBe("uk");
     expect(container.querySelector("h1")?.textContent).toBe("Вхід до UFW-GUI");
     expect(document.documentElement.lang).toBe("uk");
+  });
+
+  it("renders the real app when authentication storage is blocked", async () => {
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new DOMException("storage is blocked", "SecurityError");
+    });
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new DOMException("storage is blocked", "SecurityError");
+    });
+    vi.spyOn(Storage.prototype, "removeItem").mockImplementation(() => {
+      throw new DOMException("storage is blocked", "SecurityError");
+    });
+    const alert = vi.spyOn(window, "alert").mockImplementation(() => {});
+    const requests: Array<{ url: string; authorization?: string }> = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const headers = new Headers(init?.headers);
+      requests.push({ url, authorization: headers.get("Authorization") ?? undefined });
+
+      if (url === "/api/auth/setup-needed") return jsonResponse({ setup_needed: false });
+      if (url === "/api/auth/login") return jsonResponse({ access_token: "in-memory-token" });
+      if (url === "/api/auth/me") return jsonResponse({ username: "admin", role: "superadmin" });
+      if (url === "/api/toggle") return jsonResponse({ detail: "private API detail sentinel" }, 400);
+      if (url === "/api/status") return jsonResponse({ status: "running" });
+      if (url === "/api/diagnostics") return jsonResponse({ hint_codes: [], hints: [] });
+      if (url === "/api/rules") return jsonResponse({ rules: [] });
+      if (url === "/api/fail2ban/status") return jsonResponse({ banned: [] });
+      if (url === "/api/logs") return jsonResponse({ logs: [] });
+      if (url === "/api/stats") return jsonResponse({ hourly: [] });
+      return jsonResponse({ unresolved_marker: false });
+    }));
+
+    await act(async () => {
+      root.render(
+        <I18nProvider>
+          <App />
+        </I18nProvider>,
+      );
+    });
+
+    expect(container.querySelector("h2")?.textContent).toBe("UFW-GUI Login");
+
+    const userInput = container.querySelector<HTMLInputElement>('input[name="user"]')!;
+    const passwordInput = container.querySelector<HTMLInputElement>('input[name="pass"]')!;
+    userInput.value = "admin";
+    passwordInput.value = "test-password";
+    await act(async () => {
+      container.querySelector("form")!.dispatchEvent(
+        new Event("submit", { bubbles: true, cancelable: true }),
+      );
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(requests).toContainEqual({
+      url: "/api/auth/me",
+      authorization: "Bearer in-memory-token",
+    });
+    expect(container.textContent).toContain("admin");
+
+    const disableButton = Array.from(container.querySelectorAll("button")).find(
+      (button) => button.textContent === "Disable UFW",
+    )!;
+    await act(async () => {
+      disableButton.click();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(alert).toHaveBeenCalledWith(
+      "The request contains invalid values. Check your input and try again.",
+    );
+    expect(alert).not.toHaveBeenCalledWith("private API detail sentinel");
+    expect(requests).toContainEqual({
+      url: "/api/toggle",
+      authorization: "Bearer in-memory-token",
+    });
+
+    const logout = Array.from(container.querySelectorAll("button")).find(
+      (button) => button.textContent === "Logout",
+    )!;
+    await act(async () => logout.click());
+    expect(container.querySelector("h2")?.textContent).toBe("UFW-GUI Login");
+  });
+
+  it("shows translated diagnostics and never renders raw backend details", async () => {
+    window.localStorage.setItem("ufw_language", "zh-CN");
+    await act(async () => {
+      root.render(
+        <I18nProvider>
+          <UfwStatus
+            status={{
+              status: "unknown",
+              error_code: "ufw_status_unrecognized",
+              error: "private backend detail sentinel",
+            }}
+            diagnostics={{
+              hint_codes: [
+                "ufw_config_not_mountpoint",
+                "net_admin_missing",
+                "fail2ban_socket_missing",
+              ],
+            }}
+            apiAction={vi.fn()}
+          />
+        </I18nProvider>,
+      );
+    });
+
+    expect(container.textContent).toContain("无法识别 UFW 状态输出。");
+    expect(container.textContent).toContain("容器中存在 /etc/ufw，但它不是挂载点");
+    expect(container.textContent).toContain("容器进程缺少 NET_ADMIN。");
+    expect(container.textContent).toContain("Fail2Ban 套接字未挂载");
+    expect(container.textContent).not.toContain("private backend detail sentinel");
+    expect(container.querySelector("button")?.disabled).toBe(true);
+  });
+
+  it("shows a localized login message when the request fails", async () => {
+    window.localStorage.setItem("ufw_language", "uk");
+    const alert = vi.spyOn(window, "alert").mockImplementation(() => {});
+    const onLogin = vi.fn();
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("private network detail")));
+
+    await act(async () => {
+      root.render(
+        <I18nProvider>
+          <LoginForm onLogin={onLogin} />
+        </I18nProvider>,
+      );
+    });
+    await act(async () => {
+      container.querySelector("form")!.dispatchEvent(
+        new Event("submit", { bubbles: true, cancelable: true }),
+      );
+      await Promise.resolve();
+    });
+
+    expect(alert).toHaveBeenCalledWith(
+      "Не вдалося виконати вхід. Перевірте з'єднання та спробуйте ще раз.",
+    );
+    expect(onLogin).not.toHaveBeenCalled();
+  });
+
+  it("rejects malformed successful login responses without exposing details", async () => {
+    const alert = vi.spyOn(window, "alert").mockImplementation(() => {});
+    const onLogin = vi.fn();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => {
+          throw new Error("private response detail");
+        },
+      }),
+    );
+
+    await act(async () => {
+      root.render(
+        <I18nProvider>
+          <LoginForm onLogin={onLogin} />
+        </I18nProvider>,
+      );
+    });
+    await act(async () => {
+      container.querySelector("form")!.dispatchEvent(
+        new Event("submit", { bubbles: true, cancelable: true }),
+      );
+      await Promise.resolve();
+    });
+
+    expect(alert).toHaveBeenCalledWith(
+      "Unable to complete sign-in. Check the connection and try again.",
+    );
+    expect(alert).not.toHaveBeenCalledWith("private response detail");
+    expect(onLogin).not.toHaveBeenCalled();
   });
 });

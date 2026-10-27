@@ -19,12 +19,21 @@ function LoginForm({ onLogin }: LoginProps) {
     fd.append("username", username);
     fd.append("password", password);
 
-    const res = await fetch("/api/auth/login", { method: "POST", body: fd });
-    if (res.ok) {
+    try {
+      const res = await fetch("/api/auth/login", { method: "POST", body: fd });
+      if (!res.ok) {
+        alert(t("login.failed"));
+        return;
+      }
+
       const data = await res.json();
+      if (typeof data.access_token !== "string" || !data.access_token) {
+        alert(t("login.connection_failed"));
+        return;
+      }
       onLogin(data.access_token);
-    } else {
-      alert(t("login.failed"));
+    } catch {
+      alert(t("login.connection_failed"));
     }
   };
 

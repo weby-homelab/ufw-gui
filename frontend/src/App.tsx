@@ -9,9 +9,26 @@ import SettingsPanel from "./components/SettingsPanel"
 import LanguageSwitcher from "./components/LanguageSwitcher"
 import { useI18n } from "./i18n"
 
+function readAuthToken(): string | null {
+  try {
+    return window.localStorage.getItem("ufw_token")
+  } catch {
+    return null
+  }
+}
+
+function writeAuthToken(token: string | null): void {
+  try {
+    if (token) window.localStorage.setItem("ufw_token", token)
+    else window.localStorage.removeItem("ufw_token")
+  } catch {
+    // Authentication remains available in memory until this page is closed.
+  }
+}
+
 function App() {
   const { t, roleLabel } = useI18n()
-  const [token, setToken] = useState(localStorage.getItem("ufw_token"))
+  const [token, setToken] = useState(readAuthToken)
   const [user, setUser] = useState<any>(null)
   const [setupNeeded, setSetupNeeded] = useState<boolean | null>(null)
   const [view, setView] = useState("config")
@@ -42,13 +59,13 @@ function App() {
   const authHeaders = { "Authorization": "Bearer " + token, "Content-Type": "application/json" }
 
   const logout = () => {
-    localStorage.removeItem("ufw_token")
+    writeAuthToken(null)
     setToken(null)
     setUser(null)
   }
 
   const handleLogin = (newToken: string) => {
-    localStorage.setItem("ufw_token", newToken)
+    writeAuthToken(newToken)
     setToken(newToken)
   }
 
@@ -91,11 +108,17 @@ function App() {
           firewall_mutations_blocked: true,
         })
       }
-      alert(
-        requiresManualRecovery
-          ? t("app.manual_recovery_body")
-          : t("alert.action_failed", { status: res.status }),
-      )
+      if (requiresManualRecovery) {
+        alert(t("app.manual_recovery_body"))
+      } else if (res.status === 400) {
+        alert(t("alert.invalid_request"))
+      } else if (res.status === 403) {
+        alert(t("alert.forbidden"))
+      } else if (res.status === 503) {
+        alert(t("alert.unavailable"))
+      } else {
+        alert(t("alert.action_failed", { status: res.status }))
+      }
     } catch {
       alert(t("alert.backend_unreachable"))
     } finally {

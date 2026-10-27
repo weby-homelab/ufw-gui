@@ -23,6 +23,9 @@ export const en = {
     "An unresolved legacy recovery marker is preserved. Firewall mutations are blocked until an operator inspects and resolves it.",
   "app.footer": "© 2026 Weby Homelab • UFW-GUI (Debian/Ubuntu)",
   "alert.action_failed": "Action failed (HTTP {status})",
+  "alert.invalid_request": "The request contains invalid values. Check your input and try again.",
+  "alert.forbidden": "You are not allowed to perform this action.",
+  "alert.unavailable": "The action is unavailable. Check the service and recovery status.",
   "alert.backend_unreachable": "Action failed: the backend could not be reached.",
   "alert.test_active":
     "Cannot modify firewall rules while a test is active. Please confirm or wait for rollback.",
@@ -33,6 +36,7 @@ export const en = {
   "login.password": "Password",
   "login.submit": "Login",
   "login.failed": "Login failed",
+  "login.connection_failed": "Unable to complete sign-in. Check the connection and try again.",
   "setup.title": "UFW-GUI Setup",
   "setup.hint":
     "Use the separate setup token configured on the server over a trusted HTTPS connection.",
@@ -151,6 +155,9 @@ export const uk: Dictionary = {
     "Виявлено невирішений маркер відновлення; його збережено. Зміни фаєрвола заблоковано, доки оператор не перевірить і не усуне його.",
   "app.footer": "© 2026 Weby Homelab • UFW-GUI (Debian/Ubuntu)",
   "alert.action_failed": "Дію не виконано (HTTP {status})",
+  "alert.invalid_request": "Запит містить некоректні значення. Перевірте введені дані та спробуйте ще раз.",
+  "alert.forbidden": "У вас немає дозволу виконати цю дію.",
+  "alert.unavailable": "Дія недоступна. Перевірте стан сервісу та відновлення.",
   "alert.backend_unreachable": "Дію не виконано: бекенд недоступний.",
   "alert.test_active":
     "Не можна змінювати правила, поки триває тест. Підтвердьте зміни або дочекайтеся відкату.",
@@ -161,6 +168,7 @@ export const uk: Dictionary = {
   "login.password": "Пароль",
   "login.submit": "Увійти",
   "login.failed": "Не вдалося увійти",
+  "login.connection_failed": "Не вдалося виконати вхід. Перевірте з'єднання та спробуйте ще раз.",
   "setup.title": "Налаштування UFW-GUI",
   "setup.hint":
     "Використайте окремий токен налаштування, заданий на сервері, через довірене HTTPS-з'єднання.",
@@ -278,6 +286,9 @@ export const zhCN: Dictionary = {
     "检测到未解决的旧版恢复标记，已保留该标记。在操作员检查并解决之前，防火墙更改将被阻止。",
   "app.footer": "© 2026 Weby Homelab • UFW-GUI（Debian/Ubuntu）",
   "alert.action_failed": "操作失败（HTTP {status}）",
+  "alert.invalid_request": "请求中的值无效。请检查输入后重试。",
+  "alert.forbidden": "您无权执行此操作。",
+  "alert.unavailable": "当前无法执行此操作。请检查服务和恢复状态。",
   "alert.backend_unreachable": "操作失败：无法连接后端。",
   "alert.test_active": "测试进行中，无法修改防火墙规则。请确认更改或等待回滚。",
   "role.superadmin": "超级管理员",
@@ -287,6 +298,7 @@ export const zhCN: Dictionary = {
   "login.password": "密码",
   "login.submit": "登录",
   "login.failed": "登录失败",
+  "login.connection_failed": "无法完成登录。请检查网络连接后重试。",
   "setup.title": "UFW-GUI 初始化",
   "setup.hint": "请通过受信任的 HTTPS 连接使用服务器上配置的独立初始化令牌。",
   "setup.username": "用户名",
