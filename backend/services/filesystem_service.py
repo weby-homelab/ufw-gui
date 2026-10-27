@@ -168,6 +168,9 @@ def get_test_rollback_path() -> str:
 
 
 async def save_test_rollback():
+    # Refuse before touching an existing backup when there is no source directory.
+    if not os.path.isdir("/etc/ufw"):
+        raise FileNotFoundError("UFW configuration directory is unavailable")
     fallback_path = get_test_rollback_path()
     if os.path.exists(fallback_path):
         if os.path.isdir(fallback_path):
@@ -175,10 +178,9 @@ async def save_test_rollback():
         else:
             await asyncio.to_thread(os.remove, fallback_path)
 
-    if os.path.exists("/etc/ufw"):
-        await asyncio.to_thread(
-            shutil.copytree, "/etc/ufw", fallback_path, dirs_exist_ok=True
-        )
+    await asyncio.to_thread(
+        shutil.copytree, "/etc/ufw", fallback_path, dirs_exist_ok=True
+    )
 
 
 # --- Test State ---

@@ -87,6 +87,22 @@ class RollbackSafetyTests(unittest.TestCase):
 
 
 
+
+    def test_missing_firewall_directory_refuses_before_reload_or_backup_removal(self):
+        with patch.object(reload_router.os.path, "ismount", return_value=False), \
+             patch.object(reload_router, "get_test_state", return_value={}), \
+             patch.object(reload_router.os, "makedirs"), \
+             patch.object(filesystem_service.os.path, "isdir", return_value=False), \
+             patch.object(filesystem_service.asyncio, "to_thread", new_callable=AsyncMock) as operation, \
+             patch.object(reload_router, "save_test_state") as save, \
+             patch.object(reload_router, "run_ufw", new_callable=AsyncMock) as run:
+            with self.assertRaises(FileNotFoundError):
+                asyncio.run(reload_router.reload_test(user={"username": "admin"}))
+            operation.assert_not_called()
+            save.assert_not_called()
+            run.assert_not_called()
+
+
 class RecoveryMarkerTests(unittest.TestCase):
 
     def test_snapshot_restore_refuses_bind_mount_before_deleting(self):
