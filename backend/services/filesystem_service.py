@@ -8,6 +8,7 @@ import os
 import shutil
 import sqlite3
 import tempfile
+from contextlib import closing
 from datetime import datetime
 
 DATA_DIR = "/app/data"
@@ -24,37 +25,30 @@ def init_dirs():
 # --- Users ---
 
 def load_users() -> dict:
-    DB_FILE = f"{DATA_DIR}/stats.db"
-    # Auto-migration if users.json exists
-    if os.path.exists(USER_DATA_FILE):
-        try:
-            with open(USER_DATA_FILE, "r") as f:
-                legacy_users = json.load(f)
-            conn = sqlite3.connect(DB_FILE)
-            conn.execute("BEGIN TRANSACTION")
-            for username, data in legacy_users.items():
-                conn.execute(
-                    "INSERT OR IGNORE INTO users (username, password, role) VALUES (?, ?, ?)",
-                    (username, data["password"], data.get("role", "admin"))
-                )
-            conn.commit()
-            conn.close()
-            os.remove(USER_DATA_FILE)
-        except Exception:
-            # A failed migration must not be mistaken for an unconfigured install.
-            raise
-
-    if not os.path.exists(DB_FILE):
+    db_path = os.path.join(DATA_DIR, "stats.db")
+    if not os.path.exists(db_path):
         raise RuntimeError("User database is unavailable")
-    try:
-        conn = sqlite3.connect(DB_FILE)
+
+    # Migration commits all records together; on failure, keep the source file
+    # and propagate the error instead of allowing unauthenticated setup.
+    if os.path.exists(USER_DATA_FILE):
+        with open(USER_DATA_FILE, "r", encoding="utf-8") as source:
+            legacy_users = json.load(source)
+        with closing(sqlite3.connect(db_path)) as conn:
+            with conn:
+                conn.execute("BEGIN IMMEDIATE")
+                for username, data in legacy_users.items():
+                    conn.execute(
+                        "INSERT OR IGNORE INTO users (username, password, role) VALUES (?, ?, ?)",
+                        (username, data["password"], data.get("role", "admin")),
+                    )
+        os.remove(USER_DATA_FILE)
+
+    # Explicitly close connections even if reading fails.
+    with closing(sqlite3.connect(db_path)) as conn:
         conn.row_factory = sqlite3.Row
         rows = conn.execute("SELECT username, password, role FROM users").fetchall()
-        conn.close()
-        return {r["username"]: {"password": r["password"], "role": r["role"]} for r in rows}
-    except Exception:
-        # Propagate failures so setup cannot proceed as though no users exist.
-        raise
+    return {r["username"]: {"password": r["password"], "role": r["role"]} for r in rows}
 
 
 def create_initial_admin(username: str, password_hash: str) -> bool:
@@ -93,9 +87,9 @@ def save_users(users: dict):
                 (username, data["password"], data.get("role", "admin"))
             )
         conn.commit()
-    except Exception as e:
+    except Exception:
         conn.rollback()
-        raise e
+        raise
     finally:
         conn.close()
 
@@ -119,10 +113,10 @@ def save_config(data: dict):
         with os.fdopen(fd, 'w') as f:
             json.dump(data, f)
         os.replace(temp_path, CONFIG_FILE)
-    except Exception as e:
+    except Exception:
         if os.path.exists(temp_path):
             os.remove(temp_path)
-        raise e
+        raise
 
 
 # --- Snapshots ---
@@ -200,10 +194,10 @@ def save_test_state(state: dict):
         with os.fdopen(fd, 'w') as f:
             json.dump(state, f)
         os.replace(temp_path, TEST_STATE_FILE)
-    except Exception as e:
+    except Exception:
         if os.path.exists(temp_path):
             os.remove(temp_path)
-        raise e
+        raise
 
 
 def clear_test_state():

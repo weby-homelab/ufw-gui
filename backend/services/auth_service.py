@@ -4,7 +4,7 @@ Handles JWT tokens, access + refresh tokens, and password hashing
 """
 import os
 import secrets
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 import jwt
 from fastapi import Depends, HTTPException
@@ -25,7 +25,7 @@ token_dependency = Depends(oauth2_scheme)
 
 
 def create_access_token(username: str, role: str = "admin") -> str:
-    expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    expire = datetime.now(UTC) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     return jwt.encode(
         {"sub": username, "role": role, "exp": expire, "type": "access"},
         SECRET_KEY,
@@ -34,7 +34,7 @@ def create_access_token(username: str, role: str = "admin") -> str:
 
 
 def create_refresh_token(username: str) -> str:
-    expire = datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    expire = datetime.now(UTC) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
     return jwt.encode(
         {"sub": username, "exp": expire, "type": "refresh", "jti": secrets.token_urlsafe(16)},
         SECRET_KEY,

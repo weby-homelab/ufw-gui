@@ -1,6 +1,7 @@
 """Authentication setup must fail closed when user data cannot be read."""
 import asyncio
 import concurrent.futures
+import json
 import os
 import sqlite3
 import tempfile
@@ -12,6 +13,7 @@ os.environ.setdefault("UFW_GUI_SECRET_KEY", "test-only-secret-key-at-least-32-by
 
 from backend.routers import auth_router
 from backend.services import filesystem_service as storage
+from backend.services import auth_service
 
 
 class AuthFailureTests(unittest.TestCase):
@@ -67,6 +69,38 @@ class AuthFailureTests(unittest.TestCase):
         with sqlite3.connect(self.root / "stats.db") as db:
             self.assertEqual(db.execute("SELECT username, role FROM users").fetchall(), rows)
 
+
+
+    def test_legacy_migration_preserves_existing_accounts(self):
+        with sqlite3.connect(self.root / "stats.db") as db:
+            db.execute("CREATE TABLE users (username TEXT PRIMARY KEY, password TEXT, role TEXT)")
+            db.execute("INSERT INTO users VALUES (?, ?, ?)", ("existing", "old-hash", "superadmin"))
+        legacy = {"existing": {"password": "other-hash"}, "legacy": {"password": "legacy-hash"}}
+        (self.root / "users.json").write_text(json.dumps(legacy), encoding="utf-8")
+        users = storage.load_users()
+        self.assertEqual(users["existing"]["password"], "old-hash")
+        self.assertEqual(users["legacy"]["password"], "legacy-hash")
+        self.assertFalse((self.root / "users.json").exists())
+
+    def test_failed_legacy_migration_rolls_back_and_keeps_source(self):
+        with sqlite3.connect(self.root / "stats.db") as db:
+            db.execute("CREATE TABLE users (username TEXT PRIMARY KEY, password TEXT, role TEXT)")
+        legacy = {"first": {"password": "valid-hash"}, "second": {}}
+        (self.root / "users.json").write_text(json.dumps(legacy), encoding="utf-8")
+        with self.assertRaises(KeyError):
+            storage.load_users()
+        self.assertTrue((self.root / "users.json").exists())
+        with sqlite3.connect(self.root / "stats.db") as db:
+            self.assertEqual(db.execute("SELECT COUNT(*) FROM users").fetchone()[0], 0)
+
+    def test_access_and_refresh_tokens_remain_compatible(self):
+        token = auth_service.create_access_token("alice", "admin")
+        refresh = auth_service.create_refresh_token("alice")
+        self.assertEqual(auth_service.verify_access_token(token)["sub"], "alice")
+        self.assertEqual(auth_service.verify_refresh_token(refresh)["sub"], "alice")
+        self.assertIsNone(auth_service.verify_access_token(refresh))
+        self.assertIsNone(auth_service.verify_refresh_token(token))
+        self.assertIsNone(auth_service.verify_access_token("invalid"))
 
 if __name__ == "__main__":
     unittest.main()
