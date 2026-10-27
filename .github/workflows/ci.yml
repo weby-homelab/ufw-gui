@@ -4,6 +4,7 @@ on:
   pull_request:
     branches:
       - main
+      - fix/release-preserve-docker-tags
 
 permissions:
   contents: read
