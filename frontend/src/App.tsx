@@ -6,8 +6,11 @@ import Dashboard from "./components/Dashboard"
 import AdminPanel from "./components/AdminPanel"
 import SnapshotsPanel from "./components/SnapshotsPanel"
 import SettingsPanel from "./components/SettingsPanel"
+import LanguageSwitcher from "./components/LanguageSwitcher"
+import { useI18n } from "./i18n"
 
 function App() {
+  const { t, roleLabel } = useI18n()
   const [token, setToken] = useState(localStorage.getItem("ufw_token"))
   const [user, setUser] = useState<any>(null)
   const [setupNeeded, setSetupNeeded] = useState<boolean | null>(null)
@@ -85,9 +88,9 @@ function App() {
           firewall_mutations_blocked: true,
         })
       }
-      alert(error.detail || `Action failed (HTTP ${res.status})`)
+      alert(error.detail || t("alert.action_failed", { status: res.status }))
     } catch {
-      alert("Action failed: the backend could not be reached.")
+      alert(t("alert.backend_unreachable"))
     } finally {
       setApiLoading(false)
     }
@@ -151,25 +154,24 @@ function App() {
       <header className="glass-card header">
         <div className="brand"><h1>UFW-GUI</h1><span className="badge">v{__APP_VERSION__}</span></div>
         <nav className="view-nav">
-          <button className={view === "config" ? "nav-btn active" : "nav-btn"} onClick={() => setView("config")}>Dashboard</button>
-          <button className={view === "snapshots" ? "nav-btn active" : "nav-btn"} onClick={() => setView("snapshots")}>Snapshots</button>
-          {user?.role === "superadmin" && <button className={view === "admin" ? "nav-btn active" : "nav-btn"} onClick={() => setView("admin")}>Admin</button>}
-          {user?.role === "superadmin" && <button className={view === "settings" ? "nav-btn active" : "nav-btn"} onClick={() => setView("settings")}>Settings</button>}
+          <button className={view === "config" ? "nav-btn active" : "nav-btn"} onClick={() => setView("config")}>{t("nav.dashboard")}</button>
+          <button className={view === "snapshots" ? "nav-btn active" : "nav-btn"} onClick={() => setView("snapshots")}>{t("nav.snapshots")}</button>
+          {user?.role === "superadmin" && <button className={view === "admin" ? "nav-btn active" : "nav-btn"} onClick={() => setView("admin")}>{t("nav.admin")}</button>}
+          {user?.role === "superadmin" && <button className={view === "settings" ? "nav-btn active" : "nav-btn"} onClick={() => setView("settings")}>{t("nav.settings")}</button>}
         </nav>
         <div className="header-actions">
-          <div className="user-tag">{user?.username} ({user?.role})</div>
-          <button className="btn-logout" onClick={logout}>Logout</button>
+          <LanguageSwitcher />
+          <div className="user-tag">{user?.username} ({roleLabel(user?.role || "")})</div>
+          <button className="btn-logout" onClick={logout}>{t("action.logout")}</button>
         </div>
       </header>
 
       <aside className="recovery-notice" role="note">
-        <strong>Automatic test and rollback are unavailable.</strong> Firewall changes apply immediately;
-        verify each change yourself before applying it. No automatic rollback is provided.
+        <strong>{t("app.recovery_notice_title")}</strong> {t("app.recovery_notice_body")}
       </aside>
       {recoveryStatus?.unresolved_marker && (
         <aside className="recovery-alert" role="alert" aria-live="assertive">
-          <strong>Manual recovery required.</strong> An unresolved legacy recovery marker is preserved.
-          Firewall mutations are blocked until an operator inspects and resolves it.
+          <strong>{t("app.manual_recovery_title")}</strong> {t("app.manual_recovery_body")}
         </aside>
       )}
 
@@ -211,7 +213,7 @@ function App() {
         )}
       </main>
 
-      <footer className="footer">&copy; 2026 Weby Homelab &bull; UFW-GUI (Debian/Ubuntu)</footer>
+      <footer className="footer">{t("app.footer")}</footer>
     </div>
   )
 }

@@ -1,21 +1,24 @@
+import { useI18n } from "../i18n";
+
 interface RulesTableProps {
   rules: any[];
   apiAction: (url: string, method: string, body?: any) => void;
 }
 
 function RulesTable({ rules, apiAction }: RulesTableProps) {
+  const { t } = useI18n();
   return (
     <section className="glass-card" style={{ marginTop: "-10px" }}>
-      <h2>Active Firewall Rules</h2>
+      <h2>{t("rules.title")}</h2>
       <div className="table-container">
         <table className="log-table">
           <thead>
             <tr>
-              <th>ID</th>
-              <th>To (Port/Target)</th>
-              <th>Action</th>
-              <th>From (IP/Source)</th>
-              <th>Manage</th>
+              <th>{t("rules.id")}</th>
+              <th>{t("rules.to")}</th>
+              <th>{t("rules.action")}</th>
+              <th>{t("rules.from")}</th>
+              <th>{t("rules.manage")}</th>
             </tr>
           </thead>
           <tbody>
@@ -32,7 +35,7 @@ function RulesTable({ rules, apiAction }: RulesTableProps) {
                     className="btn-mini-ban"
                     onClick={() => apiAction("/api/rule/" + r.id, "DELETE")}
                   >
-                    Delete
+                    {t("rules.delete")}
                   </button>
                 </td>
               </tr>
@@ -40,7 +43,7 @@ function RulesTable({ rules, apiAction }: RulesTableProps) {
             {rules.length === 0 && (
               <tr>
                 <td colSpan={5} className="empty">
-                  No rules configured
+                  {t("rules.empty")}
                 </td>
               </tr>
             )}

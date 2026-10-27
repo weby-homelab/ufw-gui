@@ -1,3 +1,5 @@
+import { useI18n } from "../i18n";
+
 interface AdminPanelProps {
   auditLogs: any[];
   users: any[];
@@ -7,18 +9,19 @@ interface AdminPanelProps {
 }
 
 function AdminPanel({ auditLogs, users, inputs, setInputs, apiAction }: AdminPanelProps) {
+  const { t, roleLabel } = useI18n();
   return (
     <div className="wide-pane">
       <section className="glass-card">
-        <h2>Audit Logs</h2>
+        <h2>{t("admin.audit_title")}</h2>
         <div className="table-container">
           <table className="log-table">
             <thead>
               <tr>
-                <th>Time</th>
-                <th>User</th>
-                <th>Action</th>
-                <th>Details</th>
+                <th>{t("admin.time")}</th>
+                <th>{t("admin.user")}</th>
+                <th>{t("admin.action")}</th>
+                <th>{t("admin.details")}</th>
               </tr>
             </thead>
             <tbody>
@@ -35,7 +38,7 @@ function AdminPanel({ auditLogs, users, inputs, setInputs, apiAction }: AdminPan
               {auditLogs.length === 0 && (
                 <tr>
                   <td colSpan={4} className="empty">
-                    No logs
+                    {t("admin.no_logs")}
                   </td>
                 </tr>
               )}
@@ -44,11 +47,11 @@ function AdminPanel({ auditLogs, users, inputs, setInputs, apiAction }: AdminPan
         </div>
       </section>
       <section className="glass-card">
-        <h2>User Management</h2>
+        <h2>{t("admin.users_title")}</h2>
         <div className="tag-container">
           {users.map((u: any) => (
             <span key={u.username} className="tag port">
-              {u.username} ({u.role}){" "}
+              {u.username} ({roleLabel(u.role)}){" "}
               {u.role !== "superadmin" && (
                 <i onClick={() => apiAction("/api/users/" + u.username, "DELETE")}>×</i>
               )}
@@ -58,13 +61,13 @@ function AdminPanel({ auditLogs, users, inputs, setInputs, apiAction }: AdminPan
             <input
               value={inputs.user}
               onChange={(e) => setInputs({ ...inputs, user: e.target.value })}
-              placeholder="User"
+              placeholder={t("admin.user_placeholder")}
             />
             <input
               type="password"
               value={inputs.pass}
               onChange={(e) => setInputs({ ...inputs, pass: e.target.value })}
-              placeholder="Pass"
+              placeholder={t("admin.pass_placeholder")}
             />
             <button
               onClick={() => {
@@ -75,7 +78,7 @@ function AdminPanel({ auditLogs, users, inputs, setInputs, apiAction }: AdminPan
                 setInputs({ ...inputs, user: "", pass: "" });
               }}
             >
-              + Add
+              {t("admin.add")}
             </button>
           </div>
         </div>

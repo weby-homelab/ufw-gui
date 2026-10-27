@@ -1,10 +1,14 @@
 import type { FormEvent } from "react"
+import LanguageSwitcher from "./LanguageSwitcher"
+import { useI18n } from "../i18n"
 
 interface LoginProps {
   onLogin: (token: string) => void;
 }
 
 function LoginForm({ onLogin }: LoginProps) {
+  const { t } = useI18n()
+
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
@@ -20,17 +24,18 @@ function LoginForm({ onLogin }: LoginProps) {
       const data = await res.json();
       onLogin(data.access_token);
     } else {
-      alert("Login failed");
+      alert(t("login.failed"));
     }
   };
 
   return (
     <div className="auth-screen">
       <form className="glass-card auth-card" onSubmit={handleSubmit}>
-        <h2>UFW-GUI Login</h2>
-        <input name="user" placeholder="Username" />
-        <input name="pass" type="password" placeholder="Password" />
-        <button className="btn-reload">Login</button>
+        <div className="auth-lang"><LanguageSwitcher /></div>
+        <h2>{t("login.title")}</h2>
+        <input name="user" placeholder={t("login.username")} autoComplete="username" />
+        <input name="pass" type="password" placeholder={t("login.password")} autoComplete="current-password" />
+        <button className="btn-reload">{t("login.submit")}</button>
       </form>
     </div>
   );

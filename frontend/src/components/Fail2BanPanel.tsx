@@ -1,12 +1,15 @@
+import { useI18n } from "../i18n";
+
 interface Fail2BanPanelProps {
   bannedIps: any[];
   apiAction: (url: string, method: string, body?: any) => void;
 }
 
 function Fail2BanPanel({ bannedIps, apiAction }: Fail2BanPanelProps) {
+  const { t } = useI18n();
   return (
     <section className="glass-card" style={{ marginTop: "-10px" }}>
-      <h2>Fail2Ban Active Bans</h2>
+      <h2>{t("f2b.title")}</h2>
       <div className="tag-container">
         {bannedIps.map((b: any, i: number) => (
           <span key={i} className="tag banned">
@@ -16,7 +19,7 @@ function Fail2BanPanel({ bannedIps, apiAction }: Fail2BanPanelProps) {
             </i>
           </span>
         ))}
-        {bannedIps.length === 0 && <p className="empty">No active bans from Fail2Ban</p>}
+        {bannedIps.length === 0 && <p className="empty">{t("f2b.empty")}</p>}
       </div>
     </section>
   );

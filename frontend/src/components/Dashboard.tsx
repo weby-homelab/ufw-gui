@@ -5,6 +5,7 @@ import Fail2BanPanel from "./Fail2BanPanel";
 import QuickActions from "./QuickActions";
 import UfwStatus from "./UfwStatus";
 import StatsChart from "./StatsChart";
+import { useI18n } from "../i18n";
 
 interface DashboardProps {
   status: any;
@@ -29,6 +30,7 @@ function Dashboard({
   setInputs,
   apiAction,
 }: DashboardProps) {
+  const { t } = useI18n();
   const [monitorView, setMonitorView] = useState("rules");
 
   return (
@@ -45,19 +47,19 @@ function Dashboard({
               className={monitorView === "rules" ? "sub-nav-btn active" : "sub-nav-btn"}
               onClick={() => setMonitorView("rules")}
             >
-              Global Rules
+              {t("dashboard.rules_tab")}
             </button>
             <button
               className={monitorView === "drops" ? "sub-nav-btn active" : "sub-nav-btn"}
               onClick={() => setMonitorView("drops")}
             >
-              Live Drops (Logs)
+              {t("dashboard.drops_tab")}
             </button>
             <button
               className={monitorView === "fail2ban" ? "sub-nav-btn active" : "sub-nav-btn"}
               onClick={() => setMonitorView("fail2ban")}
             >
-              Fail2Ban
+              {t("dashboard.fail2ban_tab")}
             </button>
           </div>
         </section>
