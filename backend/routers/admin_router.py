@@ -17,6 +17,8 @@ from backend.services.filesystem_service import (
 from backend.services.subprocess_service import run_ufw
 from backend.utils.validators import is_valid_username
 
+current_user_dependency = Depends(get_current_user)
+
 router = APIRouter(prefix="/api", tags=["Admin"])
 
 
@@ -38,7 +40,7 @@ class SettingsSchema(BaseModel):
 # === Audit Logs ===
 
 @router.get("/audit-logs")
-async def get_audit(user=Depends(get_current_user)):
+async def get_audit(user=current_user_dependency):
     try:
         logs = get_audit_logs()
         return {"logs": logs}
@@ -49,7 +51,7 @@ async def get_audit(user=Depends(get_current_user)):
 # === Users ===
 
 @router.get("/users")
-async def get_users(user=Depends(get_current_user)):
+async def get_users(user=current_user_dependency):
     if user["role"] != "superadmin":
         raise HTTPException(status_code=403)
     users = load_users()
@@ -60,7 +62,7 @@ async def get_users(user=Depends(get_current_user)):
 async def add_user(
     username: str = Body(...),
     password: str = Body(...),
-    user=Depends(get_current_user),
+    user=current_user_dependency,
 ):
     if user["role"] != "superadmin":
         raise HTTPException(status_code=403)
@@ -75,7 +77,7 @@ async def add_user(
 
 
 @router.delete("/users/{username}")
-async def del_user(username: str, user=Depends(get_current_user)):
+async def del_user(username: str, user=current_user_dependency):
     if user["role"] != "superadmin":
         raise HTTPException(status_code=403)
     
@@ -100,7 +102,7 @@ async def del_user(username: str, user=Depends(get_current_user)):
 # === Settings ===
 
 @router.get("/settings")
-async def get_settings(user=Depends(get_current_user)):
+async def get_settings(user=current_user_dependency):
     try:
         return load_config()
     except Exception:
@@ -110,7 +112,7 @@ async def get_settings(user=Depends(get_current_user)):
 @router.post("/settings")
 async def save_settings(
     data: SettingsSchema,
-    user=Depends(get_current_user),
+    user=current_user_dependency,
 ):
     if user["role"] != "superadmin":
         raise HTTPException(status_code=403)
@@ -124,7 +126,7 @@ async def save_settings(
 # === Snapshots ===
 
 @router.get("/snapshots/all")
-async def get_snapshots(user=Depends(get_current_user)):
+async def get_snapshots(user=current_user_dependency):
     snaps = list_snapshots()
     return {"snapshots": [s for s in snaps if not s.startswith("test_")]}
 
@@ -132,7 +134,7 @@ async def get_snapshots(user=Depends(get_current_user)):
 @router.post("/snapshots/restore/{name}")
 async def restore_snapshot_route(
     name: str,
-    user=Depends(get_current_user),
+    user=current_user_dependency,
 ):
     try:
         await restore_snapshot(name)

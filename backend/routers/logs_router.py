@@ -9,11 +9,13 @@ from fastapi import APIRouter, Depends
 from backend.services.auth_service import get_current_user
 from backend.services.database_service import get_stats_last_24h
 
+current_user_dependency = Depends(get_current_user)
+
 router = APIRouter(prefix="/api", tags=["Logs"])
 
 
 @router.get("/logs")
-async def get_ufw_logs(user=Depends(get_current_user)):
+async def get_ufw_logs(user=current_user_dependency):
     lines = []
     log_path = "/var/log/ufw.log" if os.path.exists("/var/log/ufw.log") else "/var/log/syslog"
     if not os.path.exists(log_path):
@@ -44,7 +46,7 @@ async def get_ufw_logs(user=Depends(get_current_user)):
 
 
 @router.get("/stats")
-async def get_stats(user=Depends(get_current_user)):
+async def get_stats(user=current_user_dependency):
     try:
         hourly = get_stats_last_24h()
         return {"hourly": hourly}

@@ -33,9 +33,24 @@ jobs:
         run: |
           set -eu
           base=http://127.0.0.1:18081
+          for endpoint in \
+            'GET /api/status' 'GET /api/rules' 'POST /api/toggle' 'POST /api/rule' \
+            'DELETE /api/rule/1' 'POST /api/ban' 'POST /api/reload' \
+            'GET /api/auth/me' 'GET /api/audit-logs' 'GET /api/users' \
+            'POST /api/users' 'DELETE /api/users/test' 'GET /api/settings' \
+            'POST /api/settings' 'GET /api/snapshots/all' 'POST /api/snapshots/restore/test' \
+            'GET /api/fail2ban/status' 'POST /api/fail2ban/unban' 'GET /api/logs' \
+            'GET /api/stats' 'POST /api/reload/test' 'POST /api/reload/confirm'; do
+            method=${endpoint%% *}
+            path=${endpoint#* }
+            status=$(curl -s -o /dev/null -w '%{http_code}' -X "$method" -H 'Content-Type: application/json' -d '{}' "$base$path")
+            test "$status" = 401 || { echo "Unexpected unauthenticated response: $method $path -> $status"; exit 1; }
+          done
           curl -fsS -H 'Content-Type: application/json' -d '{"username":"ciadmin","password":"temporary-test-password"}' "$base/api/auth/setup"
           test "$(curl -s -o /dev/null -w '%{http_code}' -d 'username=ciadmin&password=wrong' "$base/api/auth/login")" = 401
           token=$(curl -fsS -d 'username=ciadmin&password=temporary-test-password' "$base/api/auth/login" | python3 -c 'import json,sys; print(json.load(sys.stdin)["access_token"])')
+          curl -fsS -H "Authorization: Bearer $token" "$base/api/auth/me" | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["username"] == "ciadmin" and d["role"] == "superadmin"'
+          curl -fsS -H "Authorization: Bearer $token" "$base/api/users" | python3 -c 'import json,sys; d=json.load(sys.stdin); assert "ciadmin" in str(d)'
           curl -fsS -H "Authorization: Bearer $token" "$base/api/status" | python3 -c 'import json,sys; assert json.load(sys.stdin)["status"] == "running"'
           curl -fsS -H "Authorization: Bearer $token" "$base/api/rules" | python3 -c 'import json,sys; d=json.load(sys.stdin); assert any("49151/tcp" in r["to"] for r in d["rules"]), d'
           curl -fsS -H "Authorization: Bearer $token" -H 'Content-Type: application/json' -d '{"action":"allow","port":"49152","proto":"tcp","ip":""}' "$base/api/rule"

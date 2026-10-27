@@ -21,6 +21,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 4 * 60
 REFRESH_TOKEN_EXPIRE_DAYS = 7
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/login")
+token_dependency = Depends(oauth2_scheme)
 
 
 def create_access_token(username: str, role: str = "admin") -> str:
@@ -69,7 +70,7 @@ def hash_password(password: str) -> str:
     return pwd_context.hash(password)
 
 
-async def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
+async def get_current_user(token: str = token_dependency) -> dict:
     from backend.services.filesystem_service import load_users
 
     payload = verify_access_token(token)

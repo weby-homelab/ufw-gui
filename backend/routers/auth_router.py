@@ -15,6 +15,9 @@ from backend.services.database_service import log_action
 from backend.services.filesystem_service import create_initial_admin, load_users
 from backend.utils.validators import is_valid_username
 
+current_user_dependency = Depends(get_current_user)
+password_form_dependency = Depends()
+
 router = APIRouter(prefix="/api/auth", tags=["Auth"])
 
 
@@ -43,7 +46,7 @@ async def setup_admin(
 
 
 @router.post("/login")
-async def login(form_data: OAuth2PasswordRequestForm = Depends()):
+async def login(form_data: OAuth2PasswordRequestForm = password_form_dependency):
     users = load_users()
     u = users.get(form_data.username)
     if not u or not verify_password(form_data.password, u["password"]):
@@ -60,7 +63,7 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
 
 
 @router.post("/refresh")
-async def refresh_token(form_data: OAuth2PasswordRequestForm = Depends()):
+async def refresh_token(form_data: OAuth2PasswordRequestForm = password_form_dependency):
     from backend.services.auth_service import verify_refresh_token
 
     refresh = verify_refresh_token(form_data.password)
@@ -83,5 +86,5 @@ async def refresh_token(form_data: OAuth2PasswordRequestForm = Depends()):
 
 
 @router.get("/me")
-async def get_me(user=Depends(get_current_user)):
+async def get_me(user=current_user_dependency):
     return user

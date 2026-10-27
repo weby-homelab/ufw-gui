@@ -11,11 +11,13 @@ from backend.services.filesystem_service import create_snapshot
 from backend.services.subprocess_service import run_ufw
 from backend.utils.validators import is_valid_ip, is_valid_port, is_valid_proto
 
+current_user_dependency = Depends(get_current_user)
+
 router = APIRouter(prefix="/api", tags=["UFW"])
 
 
 @router.get("/status")
-async def get_status(user=Depends(get_current_user)):
+async def get_status(user=current_user_dependency):
     try:
         status = await run_ufw("status")
         return {"status": "running" if "Status: active" in status else "inactive"}
@@ -26,7 +28,7 @@ async def get_status(user=Depends(get_current_user)):
 @router.post("/toggle")
 async def toggle_ufw(
     action: str = Body(..., embed=True),
-    user=Depends(get_current_user),
+    user=current_user_dependency,
 ):
     if action not in ["enable", "disable", "reload"]:
         raise HTTPException(status_code=400, detail="Invalid action")
@@ -36,7 +38,7 @@ async def toggle_ufw(
 
 
 @router.get("/rules")
-async def get_rules(user=Depends(get_current_user)):
+async def get_rules(user=current_user_dependency):
     try:
         output = await run_ufw("status", "numbered")
         rules = []
@@ -62,7 +64,7 @@ async def add_rule(
     port: str = Body(""),
     proto: str = Body(""),
     ip: str = Body(""),
-    user=Depends(get_current_user),
+    user=current_user_dependency,
 ):
     if action not in ["allow", "deny", "reject"]:
         raise HTTPException(status_code=400, detail="Invalid action")
@@ -92,7 +94,7 @@ async def add_rule(
 
 
 @router.delete("/rule/{rule_id}")
-async def delete_rule(rule_id: str, user=Depends(get_current_user)):
+async def delete_rule(rule_id: str, user=current_user_dependency):
     if not rule_id.isdigit():
         raise HTTPException(status_code=400, detail="Invalid ID")
     await create_snapshot("before_del_rule")
@@ -104,7 +106,7 @@ async def delete_rule(rule_id: str, user=Depends(get_current_user)):
 @router.post("/ban")
 async def ban_ip(
     ip: str = Body(..., embed=True),
-    user=Depends(get_current_user),
+    user=current_user_dependency,
 ):
     if not ip:
         raise HTTPException(status_code=400, detail="IP is required")
@@ -117,7 +119,7 @@ async def ban_ip(
 
 
 @router.post("/reload")
-async def reload_firewall(user=Depends(get_current_user)):
+async def reload_firewall(user=current_user_dependency):
     res = await run_ufw("reload")
     log_action(user["username"], "RELOAD", "System")
     return {"result": res}

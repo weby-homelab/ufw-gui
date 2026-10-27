@@ -21,6 +21,8 @@ from backend.services.filesystem_service import (
 )
 from backend.services.subprocess_service import run_ufw
 
+current_user_dependency = Depends(get_current_user)
+
 router = APIRouter(prefix="/api/reload", tags=["Test Mode"])
 
 
@@ -48,7 +50,7 @@ async def perform_rollback():
 
 
 @router.post("/test")
-async def reload_test(user=Depends(get_current_user)):
+async def reload_test(user=current_user_dependency):
     global rollback_task_ref
 
     # Check persistent test state to block parallel tests
@@ -73,7 +75,7 @@ async def reload_test(user=Depends(get_current_user)):
 
 
 @router.post("/confirm")
-async def reload_confirm(user=Depends(get_current_user)):
+async def reload_confirm(user=current_user_dependency):
     global rollback_task_ref
 
     state = get_test_state()

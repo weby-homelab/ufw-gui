@@ -10,11 +10,13 @@ from backend.services.database_service import log_action
 from backend.services.subprocess_service import run_fail2ban
 from backend.utils.validators import is_valid_ip, is_valid_jail
 
+current_user_dependency = Depends(get_current_user)
+
 router = APIRouter(prefix="/api/fail2ban", tags=["Fail2Ban"])
 
 
 @router.get("/status")
-async def get_f2b_status(user=Depends(get_current_user)):
+async def get_f2b_status(user=current_user_dependency):
     try:
         status_out = await run_fail2ban("status")
         jails_match = re.search(r"Jail list:\s+(.*)", status_out)
@@ -39,7 +41,7 @@ async def get_f2b_status(user=Depends(get_current_user)):
 async def unban_ip(
     ip: str = Body(...),
     jail: str = Body(...),
-    user=Depends(get_current_user),
+    user=current_user_dependency,
 ):
     if not is_valid_ip(ip):
         raise HTTPException(status_code=400, detail="Invalid IP")
