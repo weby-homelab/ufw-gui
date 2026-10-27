@@ -1,10 +1,12 @@
 """Rollback must preserve evidence and must not delete a host bind mount."""
 import asyncio
 import os
+import tempfile
 import unittest
 from unittest.mock import AsyncMock, patch
 
 os.environ.setdefault("UFW_GUI_SECRET_KEY", "test-only-secret-key-at-least-32-bytes")
+from backend.services import filesystem_service
 from backend import main
 from backend.routers import reload_router
 
@@ -83,6 +85,51 @@ class RollbackSafetyTests(unittest.TestCase):
             save.assert_not_called()
             run.assert_not_called()
 
+
+
+class RecoveryMarkerTests(unittest.TestCase):
+    def test_missing_marker_is_empty(self):
+        with tempfile.TemporaryDirectory() as directory:
+            marker = os.path.join(directory, "state.json")
+            with patch.object(filesystem_service, "TEST_STATE_FILE", marker):
+                self.assertEqual(filesystem_service.get_test_state(), {})
+
+    def test_invalid_marker_is_not_empty(self):
+        with tempfile.TemporaryDirectory() as directory:
+            marker = os.path.join(directory, "state.json")
+            with patch.object(filesystem_service, "TEST_STATE_FILE", marker):
+                for invalid in ("{", "[]", "{}", '{"status": "unknown"}'):
+                    with open(marker, "w", encoding="utf-8") as output:
+                        output.write(invalid)
+                    with self.assertRaises(RuntimeError):
+                        filesystem_service.get_test_state()
+                    self.assertTrue(os.path.exists(marker))
+
+    def test_read_error_is_not_empty(self):
+        with patch("builtins.open", side_effect=PermissionError("denied")):
+            with self.assertRaises(RuntimeError):
+                filesystem_service.get_test_state()
+
+    def test_dangling_symlink_is_not_missing_marker(self):
+        with tempfile.TemporaryDirectory() as directory:
+            marker = os.path.join(directory, "state.json")
+            os.symlink(os.path.join(directory, "missing"), marker)
+            with patch.object(filesystem_service, "TEST_STATE_FILE", marker):
+                with self.assertRaises(RuntimeError):
+                    filesystem_service.get_test_state()
+
+    def test_marker_removal_error_is_visible(self):
+        with patch.object(filesystem_service.os, "remove", side_effect=PermissionError("denied")):
+            with self.assertRaises(PermissionError):
+                filesystem_service.clear_test_state()
+
+    def test_active_marker_is_read(self):
+        with tempfile.TemporaryDirectory() as directory:
+            marker = os.path.join(directory, "state.json")
+            with open(marker, "w", encoding="utf-8") as output:
+                output.write('{"status": "testing"}')
+            with patch.object(filesystem_service, "TEST_STATE_FILE", marker):
+                self.assertEqual(filesystem_service.get_test_state(), {"status": "testing"})
 
 if __name__ == "__main__":
     unittest.main()

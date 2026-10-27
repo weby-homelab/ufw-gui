@@ -178,13 +178,20 @@ TEST_STATE_FILE = f"{DATA_DIR}/test_state.json"
 
 
 def get_test_state() -> dict:
-    if not os.path.exists(TEST_STATE_FILE):
-        return {}
+    """Return an absent marker as empty; reject unreadable or invalid markers."""
     try:
-        with open(TEST_STATE_FILE, "r") as f:
-            return json.load(f)
-    except Exception:
+        with open(TEST_STATE_FILE, "r", encoding="utf-8") as f:
+            state = json.load(f)
+    except FileNotFoundError:
+        # A dangling symlink is not an absent recovery marker.
+        if os.path.lexists(TEST_STATE_FILE):
+            raise RuntimeError("Recovery marker is a dangling symlink") from None
         return {}
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise RuntimeError("Cannot read recovery marker; manual recovery may be required") from exc
+    if not isinstance(state, dict) or state.get("status") != "testing":
+        raise RuntimeError("Invalid recovery marker; manual recovery may be required")
+    return state
 
 
 def save_test_state(state: dict):
@@ -201,8 +208,8 @@ def save_test_state(state: dict):
 
 
 def clear_test_state():
-    if os.path.exists(TEST_STATE_FILE):
-        try:
-            os.remove(TEST_STATE_FILE)
-        except Exception:
-            pass
+    try:
+        os.remove(TEST_STATE_FILE)
+    except FileNotFoundError:
+        if os.path.lexists(TEST_STATE_FILE):
+            raise
