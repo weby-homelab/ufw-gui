@@ -5,6 +5,13 @@ on:
     branches:
       - main
       - fix/release-preserve-docker-tags
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: release-validation-${{ github.sha }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -71,6 +78,9 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Verify synchronized release versions
+        run: python3 scripts/check_versions.py
+
       - name: Check Python Compilation
         run: python -m py_compile backend/*.py backend/*/*.py
 
@@ -102,6 +112,10 @@ jobs:
 
       - name: Install frontend dependencies
         run: npm ci --legacy-peer-deps --ignore-scripts
+        working-directory: frontend
+
+      - name: Audit frontend dependencies
+        run: npm audit --audit-level=moderate
         working-directory: frontend
 
       - name: Typecheck frontend

@@ -164,7 +164,7 @@ characters and at most 72 UTF-8 bytes; existing accounts are not changed.
 - **OS:** Ubuntu 22.04–26.04, Debian 11+, AlmaLinux 9+.
 - **Dependencies:** `docker`, `docker-compose`, `ufw`, `fail2ban`.
 - **Access:** `root` privileges and the capabilities listed in `docker-compose.yml` (`NET_ADMIN` is required) for the backend container.
-- **Verified image:** `webyhomelab/ufw-gui:1.6.3` and newer install `iptables` explicitly and use direct bcrypt instead of the unmaintained passlib layer.
+- **Image source:** The Dockerfile installs `iptables` explicitly, and the backend uses bcrypt directly instead of the unmaintained passlib layer. Publication of release images is gated on exact-SHA CI and Ubuntu 26 integration.
 
 ### ⚠️ Docker & Host Firewall Integration (Must Read)
 - **Host Firewall Engine:** `UFW` and `Fail2Ban` **must be installed and actively running on the Host OS**, not inside the container.

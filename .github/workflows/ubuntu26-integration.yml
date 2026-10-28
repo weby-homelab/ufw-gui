@@ -8,21 +8,28 @@ on:
         type: string
 permissions:
   contents: read
+concurrency:
+  group: release-validation-${{ github.sha }}
+  cancel-in-progress: true
 jobs:
   host-ufw:
     if: ${{ github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-26.04
     timeout-minutes: 25
+    permissions:
+      contents: read
     steps:
       - name: Validate immutable candidate SHA
         env:
           CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          WORKFLOW_SHA: ${{ github.sha }}
         run: |
           set -eu
           case "$CANDIDATE_SHA" in
             *[!0-9a-f]*|'') echo "candidate_sha must be a full lowercase commit SHA" >&2; exit 1 ;;
           esac
           test "${#CANDIDATE_SHA}" -eq 40
+          test "$CANDIDATE_SHA" = "$WORKFLOW_SHA" || { echo "candidate_sha must match the main commit that dispatched this run" >&2; exit 1; }
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           ref: ${{ inputs.candidate_sha }}
@@ -57,8 +64,10 @@ jobs:
           set -eu
           export UFW_GUI_SECRET_KEY="$(python3 -c 'import secrets; print(secrets.token_urlsafe(48))')"
           export UFW_GUI_SETUP_TOKEN="$(python3 -c 'import secrets; print(secrets.token_urlsafe(48))')"
+          UFW_GUI_TEST_PASSWORD="$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')"
           echo "::add-mask::$UFW_GUI_SECRET_KEY"
           echo "::add-mask::$UFW_GUI_SETUP_TOKEN"
+          echo "::add-mask::$UFW_GUI_TEST_PASSWORD"
           run_with_setup_token() {
             docker run -d --name ufw-gui-ci --network host --cap-add NET_ADMIN --cap-add DAC_OVERRIDE --cap-add FOWNER --cap-add SETUID --cap-add SETGID -e PORT=18081 -e FORWARDED_ALLOW_IPS=127.0.0.1 --env UFW_GUI_SECRET_KEY --env UFW_GUI_SETUP_TOKEN -v "$RUNNER_TEMP/ufw-gui-data:/app/data" -v /etc/ufw:/etc/ufw ufw-gui-ci
           }
@@ -74,10 +83,13 @@ jobs:
           }
           run_with_setup_token
           wait_for_health
-          setup_payload=$(python3 -c 'import json,os; print(json.dumps({"username":"ciadmin","password":"temporary-test-password","setup_token":os.environ["UFW_GUI_SETUP_TOKEN"]}))')
+          export UFW_GUI_TEST_PASSWORD
+          setup_payload=$(python3 -c 'import json,os; print(json.dumps({"username":"ciadmin","password":os.environ["UFW_GUI_TEST_PASSWORD"],"setup_token":os.environ["UFW_GUI_SETUP_TOKEN"]}))')
+          umask 077
+          printf '%s' "$UFW_GUI_TEST_PASSWORD" > "$RUNNER_TEMP/ufw-gui-test-password"
           # The app trusts only loopback proxy headers in this disposable runner.
           curl -fsS -H 'X-Forwarded-Proto: https' -H 'Content-Type: application/json' --data-binary "$setup_payload" http://127.0.0.1:18081/api/auth/setup
-          unset setup_payload UFW_GUI_SETUP_TOKEN
+          unset setup_payload UFW_GUI_SETUP_TOKEN UFW_GUI_TEST_PASSWORD
           docker rm -f ufw-gui-ci >/dev/null
           run_without_setup_token
           unset UFW_GUI_SECRET_KEY
@@ -103,8 +115,13 @@ jobs:
             echo "Setup token unexpectedly remained available after admin setup" >&2
             exit 1
           fi
-          test "$(curl -s -o /dev/null -w '%{http_code}' -d 'username=ciadmin&password=wrong' "$base/api/auth/login")" = 401
-          token=$(curl -fsS -d 'username=ciadmin&password=temporary-test-password' "$base/api/auth/login" | python3 -c 'import json,sys; print(json.load(sys.stdin)["access_token"])')
+          test "$(curl -s -o /dev/null -w '%{http_code}' --data-urlencode 'username=ciadmin' --data-urlencode 'password=wrong' "$base/api/auth/login")" = 401
+          test_password_file="$RUNNER_TEMP/ufw-gui-test-password"
+          test -s "$test_password_file"
+          test_password="$(cat "$test_password_file")"
+          token=$(curl -fsS --data-urlencode 'username=ciadmin' --data-urlencode "password=$test_password" "$base/api/auth/login" | python3 -c 'import json,sys; print(json.load(sys.stdin)["access_token"])')
+          unset test_password
+          rm -f -- "$test_password_file"
           curl -fsS -H "Authorization: Bearer $token" "$base/api/auth/me" | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["username"] == "ciadmin" and d["role"] == "superadmin"'
           diagnostics=$(curl -fsS -H "Authorization: Bearer $token" "$base/api/diagnostics")
           python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["ufw"]["binary_present"] and d["ufw"]["config_dir_mountpoint"] and d["ufw"]["net_admin_available"], d; assert not {"ufw_binary_missing","ufw_config_missing","ufw_config_not_mountpoint","net_admin_missing"}.intersection(d["hint_codes"]), d' <<<"$diagnostics"
@@ -157,5 +174,28 @@ jobs:
         run: docker logs ufw-gui-ci || true
       - if: always()
         run: |
-          docker rm -f ufw-gui-ci >/dev/null 2>&1 || true
-          sudo rm -rf -- "$RUNNER_TEMP/ufw-gui-data"
+          set -u
+          cleanup_failed=0
+          if ! rm -f -- "$RUNNER_TEMP/ufw-gui-test-password"; then
+            echo "Failed to remove the integration password file." >&2
+            cleanup_failed=1
+          fi
+          if containers="$(docker ps -a --format '{{.Names}}' 2>/dev/null)"; then
+            if printf '%s\n' "$containers" | grep -Fxq 'ufw-gui-ci'; then
+              if ! docker rm -f ufw-gui-ci >/dev/null; then
+                echo "Failed to remove the integration container." >&2
+                cleanup_failed=1
+              fi
+            fi
+          else
+            echo "Failed to inspect integration containers." >&2
+            cleanup_failed=1
+            if ! docker rm -f ufw-gui-ci >/dev/null; then
+              echo "Failed to remove the integration container after inspection failed." >&2
+            fi
+          fi
+          if ! sudo rm -rf -- "$RUNNER_TEMP/ufw-gui-data"; then
+            echo "Failed to remove integration storage." >&2
+            cleanup_failed=1
+          fi
+          exit "$cleanup_failed"

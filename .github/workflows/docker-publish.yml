@@ -3,50 +3,241 @@ name: Publish Docker Image
 on:
   release:
     types: [published]
-  push:
-    tags:
-      - 'v*'
+
+concurrency:
+  group: docker-publish-stable-releases
+  cancel-in-progress: false
+  queue: max
 
 jobs:
   push_to_registry:
     name: Push Docker image to Docker Hub
     runs-on: ubuntu-latest
+    concurrency:
+      group: release-validation-${{ github.sha }}
+      cancel-in-progress: true
     permissions:
       contents: read
-      packages: write
+      actions: read
+      checks: read
     steps:
       - name: Check out the repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+      - name: Validate release tag and version sources
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_PRERELEASE: ${{ github.event.release.prerelease }}
+          RELEASE_SHA: ${{ github.sha }}
+        run: |
+          set -eu
+          expected_tag="v$(cat VERSION)"
+          if [ "$RELEASE_PRERELEASE" = "true" ] || [ "$RELEASE_TAG" != "$expected_tag" ]; then
+            echo "Refusing to publish: only a stable release matching VERSION may be published." >&2
+            exit 1
+          fi
+          case "$RELEASE_SHA" in
+            *[!0-9a-f]*|'') echo "release SHA must be a full lowercase commit SHA" >&2; exit 1 ;;
+          esac
+          test "${#RELEASE_SHA}" -eq 40
+          release_commit="$(git rev-parse "refs/tags/${RELEASE_TAG}^{commit}")"
+          if [ "$release_commit" != "$RELEASE_SHA" ] || [ "$(git rev-parse HEAD)" != "$RELEASE_SHA" ]; then
+            echo "Refusing to publish: tag and checkout must match the immutable release-event SHA." >&2
+            exit 1
+          fi
+          if ! git merge-base --is-ancestor "$RELEASE_SHA" origin/main; then
+            echo "Refusing to publish: release commit is not contained in main." >&2
+            exit 1
+          fi
+          if ! checkout_status="$(git status --porcelain)"; then
+            echo "Refusing to publish: could not verify checkout cleanliness." >&2
+            exit 1
+          fi
+          if [ -n "$checkout_status" ]; then
+            echo "Refusing to publish: checkout is not clean before release preflight." >&2
+            exit 1
+          fi
+
+      - name: Load gate verifier from the protected main branch
+        env:
+          RELEASE_SHA: ${{ github.sha }}
+        run: |
+          set -eu
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+          trusted_main_sha="$(git rev-parse 'refs/remotes/origin/main^{commit}')"
+          if ! git merge-base --is-ancestor "$RELEASE_SHA" "$trusted_main_sha"; then
+            echo "Refusing to publish: release SHA is not in the fetched main branch." >&2
+            exit 1
+          fi
+          mkdir -p "$RUNNER_TEMP/release-gate/scripts"
+          for script in check_release_gates.py check_docker_tags.py check_versions.py promote_docker_tags.py; do
+            git show "${trusted_main_sha}:scripts/$script" > "$RUNNER_TEMP/release-gate/scripts/$script"
+            test -s "$RUNNER_TEMP/release-gate/scripts/$script"
+          done
+
+      - name: Verify exact-SHA CI and Ubuntu 26 integration gates
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_SHA: ${{ github.sha }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: python3 -P "$RUNNER_TEMP/release-gate/scripts/check_release_gates.py"
+
+      - name: Verify Docker Hub immutable tag policy and tag availability
+        env:
+          PYTHONPATH: ${{ runner.temp }}/release-gate
+          UFW_GUI_PROJECT_ROOT: ${{ github.workspace }}
+          RELEASE_RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          set -eu
+          if [ "$RELEASE_RUN_ATTEMPT" = "1" ]; then
+            python3 -P -m scripts.check_docker_tags
+          else
+            python3 -P -m scripts.check_docker_tags --allow-existing
+          fi
+
+      - name: Verify checkout remains clean after preflight
+        run: |
+          set -eu
+          if ! checkout_status="$(git status --porcelain)"; then
+            echo "Refusing to publish: could not verify checkout cleanliness." >&2
+            exit 1
+          fi
+          if [ -n "$checkout_status" ]; then
+            echo "Refusing to publish: release preflight modified the checkout." >&2
+            exit 1
+          fi
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
 
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_HUB_USERNAME }}
-          password: ${{ secrets.DOCKER_HUB_PASSWORD }}
-
-      - name: Extract metadata (tags, labels) for Docker
+      - name: Extract metadata (labels) for Docker
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
         with:
           images: webyhomelab/ufw-gui
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern=v{{version}}
-            type=raw,value=latest,enable=${{ github.event_name == 'release' || startsWith(github.ref, 'refs/tags/v') }}
-            type=raw,value=main,enable=${{ github.ref == 'refs/heads/main' }}
+          labels: |
+            org.opencontainers.image.revision=${{ github.sha }}
 
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v6
+      - name: Build Docker image locally before publishing
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: .
           file: ./Dockerfile
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
+          github-token: ''
+          platforms: linux/amd64
+          load: true
+          tags: local/ufw-gui:${{ github.sha }}
           labels: ${{ steps.meta.outputs.labels }}
 
+      - name: Record first-attempt image identity for safe retries
+        if: ${{ github.run_attempt == 1 }}
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_SHA: ${{ github.sha }}
+        run: |
+          set -eu
+          source_image="local/ufw-gui:${RELEASE_SHA}"
+          image_id="$(docker image inspect --format '{{.Id}}' "$source_image")"
+          revision="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$source_image")"
+          image_version="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.version" }}' "$source_image")"
+          expected_version="${RELEASE_TAG#v}"
+          if [ "$revision" != "$RELEASE_SHA" ] || [ "$image_version" != "$expected_version" ]; then
+            echo "Refusing to record an image without exact release identity labels." >&2
+            exit 1
+          fi
+          case "$image_id" in sha256:*) image_digest="${image_id#sha256:}" ;; *) echo "Docker image ID is not a SHA-256 digest." >&2; exit 1 ;; esac
+          case "$image_digest" in *[!0-9a-f]*|'') echo "Docker image ID is not a lowercase SHA-256 digest." >&2; exit 1 ;; esac
+          test "${#image_digest}" -eq 64
+          mkdir -p "$RUNNER_TEMP/release-image-identity"
+          umask 077
+          printf '%s\n%s\n%s\n' "$RELEASE_TAG" "$RELEASE_SHA" "$image_id" > "$RUNNER_TEMP/release-image-identity/release-image-identity.txt"
+
+      - name: Upload first-attempt image identity
+        if: ${{ github.run_attempt == 1 }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-image-identity-${{ github.run_id }}
+          path: ${{ runner.temp }}/release-image-identity/release-image-identity.txt
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Reconfirm exact-SHA CI and Ubuntu 26 gates
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_SHA: ${{ github.sha }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: python3 -P "$RUNNER_TEMP/release-gate/scripts/check_release_gates.py"
+
+      - name: Reconfirm Docker Hub policy and tag availability
+        id: registry-preflight
+        env:
+          PYTHONPATH: ${{ runner.temp }}/release-gate
+          UFW_GUI_PROJECT_ROOT: ${{ github.workspace }}
+          RELEASE_RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          set -eu
+          if [ "$RELEASE_RUN_ATTEMPT" = "1" ]; then
+            python3 -P -m scripts.check_docker_tags
+          else
+            python3 -P -m scripts.check_docker_tags --allow-existing
+          fi
+
+      - name: Download first-attempt image identity for immutable-tag recovery
+        if: ${{ github.run_attempt > 1 && (steps.registry-preflight.outputs.version_tag_exists == 'true' || steps.registry-preflight.outputs.v_version_tag_exists == 'true') }}
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-image-identity-${{ github.run_id }}
+          path: ${{ runner.temp }}/release-image-identity-retry
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ github.run_id }}
+          digest-mismatch: error
+
+      - name: Revalidate immutable release refs before registry authentication
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_SHA: ${{ github.sha }}
+        run: |
+          set -eu
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+          git fetch --force --no-tags origin "+refs/tags/${RELEASE_TAG}:refs/tags/${RELEASE_TAG}"
+          release_commit="$(git rev-parse "refs/tags/${RELEASE_TAG}^{commit}")"
+          if [ "$release_commit" != "$RELEASE_SHA" ] || [ "$(git rev-parse HEAD)" != "$RELEASE_SHA" ]; then
+            echo "Refusing to publish: release tag moved after the initial validation." >&2
+            exit 1
+          fi
+          if ! git merge-base --is-ancestor "$RELEASE_SHA" origin/main; then
+            echo "Refusing to publish: release SHA is no longer contained in main." >&2
+            exit 1
+          fi
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_PASSWORD }}
+
+      - name: Push or safely resume immutable version tags
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_SHA: ${{ github.sha }}
+          RELEASE_RUN_ATTEMPT: ${{ github.run_attempt }}
+          EXISTING_VERSION_TAG: ${{ steps.registry-preflight.outputs.version_tag_exists }}
+          EXISTING_V_VERSION_TAG: ${{ steps.registry-preflight.outputs.v_version_tag_exists }}
+          RELEASE_IMAGE_IDENTITY_FILE: ${{ runner.temp }}/release-image-identity-retry/release-image-identity.txt
+        run: python3 -P "$RUNNER_TEMP/release-gate/scripts/promote_docker_tags.py"
+
+      - name: Reconfirm release order before moving latest
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_SHA: ${{ github.sha }}
+          PYTHONPATH: ${{ runner.temp }}/release-gate
+        run: python3 -P "$RUNNER_TEMP/release-gate/scripts/promote_docker_tags.py" --latest
