@@ -53,7 +53,8 @@ def successful_payloads():
                 "head_sha": SHA,
                 "status": "completed",
                 "conclusion": "success",
-                "created_at": CREATED_AT,
+                "started_at": CREATED_AT,
+                "completed_at": CREATED_AT,
                 "id": index,
                 "app": {"slug": "github-actions"},
                 "details_url": (
@@ -164,35 +165,47 @@ class ReleaseGateTests(unittest.TestCase):
         for call in opener.call_args_list:
             self.assertEqual(call.args[0].headers["Authorization"], "Bearer test-token")
 
-    def test_latest_duplicate_ci_run_is_used(self):
+    def test_api_shaped_check_runs_use_started_and_completed_timestamps(self):
         checks, ci_run, integration_run = successful_payloads()
-        failed_retry = dict(checks["check_runs"][0])
-        failed_retry.update(
+
+        check_release_gates(
+            SHA,
+            "test-token",
+            opener=gate_opener(checks, ci_run, integration_run),
+        )
+
+    def test_duplicate_check_runs_block_release_without_assuming_id_order(self):
+        checks, ci_run, integration_run = successful_payloads()
+        successful_check = checks["check_runs"][0]
+        successful_check["id"] = 100
+        pending_retry = dict(successful_check)
+        pending_retry.update(
             {
-                "status": "completed",
-                "conclusion": "failure",
-                "created_at": "2026-10-27T23:00:00Z",
-                "id": 100,
+                "status": "in_progress",
+                "conclusion": None,
+                "started_at": "2026-10-28T07:45:00Z",
+                "completed_at": None,
+                "id": 99,
             }
         )
-        checks["check_runs"].append(failed_retry)
+        checks["check_runs"].append(pending_retry)
         checks["total_count"] += 1
 
-        with self.assertRaisesRegex(ReleaseGateError, "did not succeed"):
+        with self.assertRaisesRegex(ReleaseGateError, "duplicate required"):
             check_release_gates(
                 SHA,
                 "test-token",
                 opener=gate_opener(checks, ci_run, integration_run),
             )
 
-    def test_higher_check_run_id_breaks_timestamp_ties(self):
+    def test_duplicate_failed_check_run_blocks_release(self):
         checks, ci_run, integration_run = successful_payloads()
         failed_retry = dict(checks["check_runs"][0])
         failed_retry.update({"conclusion": "failure", "id": 100})
         checks["check_runs"].append(failed_retry)
         checks["total_count"] += 1
 
-        with self.assertRaisesRegex(ReleaseGateError, "did not succeed"):
+        with self.assertRaisesRegex(ReleaseGateError, "duplicate required"):
             check_release_gates(
                 SHA,
                 "test-token",
@@ -212,18 +225,32 @@ class ReleaseGateTests(unittest.TestCase):
             )
 
     def test_failed_or_pending_ci_check_blocks_release(self):
-        for status, conclusion in (("in_progress", None), ("completed", "failure")):
+        for status, conclusion in (
+            ("queued", None),
+            ("in_progress", None),
+            ("waiting", None),
+            ("requested", None),
+            ("pending", None),
+            ("completed", "failure"),
+        ):
             with self.subTest(status=status, conclusion=conclusion):
                 checks, ci_run, integration_run = successful_payloads()
                 checks["check_runs"][0]["status"] = status
                 checks["check_runs"][0]["conclusion"] = conclusion
+                if status in {"queued", "waiting", "requested", "pending"}:
+                    checks["check_runs"][0]["started_at"] = None
+                    checks["check_runs"][0]["completed_at"] = None
+                elif status == "in_progress":
+                    checks["check_runs"][0]["completed_at"] = None
 
                 with self.assertRaisesRegex(ReleaseGateError, "did not succeed"):
+                    opener = gate_opener(checks, ci_run, integration_run)
                     check_release_gates(
                         SHA,
                         "test-token",
-                        opener=gate_opener(checks, ci_run, integration_run),
+                        opener=opener,
                     )
+                opener.assert_called_once()
 
     def test_check_from_different_sha_does_not_satisfy_gate(self):
         checks, ci_run, integration_run = successful_payloads()
@@ -313,14 +340,28 @@ class ReleaseGateTests(unittest.TestCase):
             )
 
         for field, value in (
-            ("created_at", None),
-            ("created_at", "2026-10-27T20:00:00"),
+            ("started_at", None),
+            ("completed_at", None),
+            ("started_at", "2026-10-27T20:00:00"),
+            ("completed_at", "2026-10-27T20:00:00"),
+            ("completed_at", 123),
             ("id", None),
         ):
             with self.subTest(field=field, value=value):
                 checks, ci_run, integration_run = successful_payloads()
                 checks["check_runs"][0][field] = value
                 with self.assertRaises(ReleaseGateError):
+                    check_release_gates(
+                        SHA,
+                        "test-token",
+                        opener=gate_opener(checks, ci_run, integration_run),
+                    )
+
+        for field in ("started_at", "completed_at"):
+            with self.subTest(missing_field=field):
+                checks, ci_run, integration_run = successful_payloads()
+                checks["check_runs"][0].pop(field)
+                with self.assertRaisesRegex(ReleaseGateError, "incomplete check-run"):
                     check_release_gates(
                         SHA,
                         "test-token",

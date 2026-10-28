@@ -29,7 +29,14 @@ RELEASE_TAG_PATTERN = re.compile(r"v?(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][
 GITHUB_ACTION_JOB_URL = re.compile(
     r"https://github\.com/weby-homelab/ufw-gui/actions/runs/([1-9][0-9]*)/job/([1-9][0-9]*)"
 )
-CHECK_STATUSES = {"queued", "in_progress", "completed"}
+CHECK_STATUSES = {
+    "queued",
+    "in_progress",
+    "completed",
+    "waiting",
+    "requested",
+    "pending",
+}
 
 
 class _RejectRedirects(HTTPRedirectHandler):
@@ -88,29 +95,30 @@ def _get_json(path: str, token: str, opener=_github_urlopen):
         ) from None
 
 
-def _validated_created_at(item: dict) -> tuple[datetime, int]:
-    created_at = item.get("created_at")
+def _validated_check_run_id(item: dict) -> int:
     identifier = item.get("id")
     if (
-        not isinstance(created_at, str)
-        or not isinstance(identifier, int)
+        not isinstance(identifier, int)
         or isinstance(identifier, bool)
         or identifier < 1
     ):
         raise ReleaseGateError("GitHub returned incomplete check-run metadata")
-    try:
-        parsed = datetime.fromisoformat(created_at)
-    except ValueError:
+    if "started_at" not in item or "completed_at" not in item:
+        raise ReleaseGateError("GitHub returned incomplete check-run timestamps")
+    for field_name in ("started_at", "completed_at"):
+        timestamp = item.get(field_name)
+        if timestamp is not None:
+            _validate_timestamp(timestamp, f"check-run {field_name}")
+    return identifier
+
+
+def _require_completed_check_run_timestamps(item: dict) -> None:
+    if item.get("status") != "completed" or any(
+        item.get(field_name) is None for field_name in ("started_at", "completed_at")
+    ):
         raise ReleaseGateError(
-            "GitHub returned an invalid check-run timestamp"
-        ) from None
-    if parsed.tzinfo is None:
-        raise ReleaseGateError("GitHub returned a timezone-naive check-run timestamp")
-    return parsed, identifier
-
-
-def _latest_check_run(items: list[dict]) -> dict:
-    return max(items, key=_validated_created_at)
+            "GitHub returned incomplete completed check-run timestamps"
+        )
 
 
 def _validate_timestamp(value: object, field_name: str) -> None:
@@ -140,13 +148,14 @@ def _trusted_github_actions_run(check: dict, sha: str) -> tuple[int, int]:
     match = GITHUB_ACTION_JOB_URL.fullmatch(details_url)
     if match is None:
         raise ReleaseGateError("Ubuntu 26 check has an unexpected workflow-run URL")
-    _validated_created_at(check)
+    _validated_check_run_id(check)
     if str(check.get("head_sha", "")).lower() != sha:
         raise ReleaseGateError("Ubuntu 26 check does not match the release SHA")
     if check.get("status") != "completed" or check.get("conclusion") != "success":
         raise ReleaseGateError(
             "Ubuntu 26 integration is not successful for release SHA"
         )
+    _require_completed_check_run_timestamps(check)
     return int(match.group(1)), int(match.group(2))
 
 
@@ -303,7 +312,7 @@ def _require_checks_success(sha: str, token: str, opener=_github_urlopen) -> Non
             )
         ):
             raise ReleaseGateError("GitHub returned malformed CI check-run metadata")
-        _validated_created_at(check)
+        _validated_check_run_id(check)
         check_id = check["id"]
         if check_id in check_ids:
             raise ReleaseGateError("GitHub returned duplicate CI check-run identifiers")
@@ -324,7 +333,16 @@ def _require_checks_success(sha: str, token: str, opener=_github_urlopen) -> Non
             + ", ".join(missing)
         )
 
-    latest_runs = {name: _latest_check_run(runs) for name, runs in candidates.items()}
+    duplicates = [name for name, runs in candidates.items() if len(runs) != 1]
+    if duplicates:
+        raise ReleaseGateError(
+            "duplicate required GitHub Actions checks for release SHA: "
+            + ", ".join(duplicates)
+        )
+
+    # The API's filter=latest response is authoritative. If it is ambiguous,
+    # fail closed instead of assuming check-run IDs encode creation order.
+    latest_runs = {name: runs[0] for name, runs in candidates.items()}
     unsuccessful = [
         name
         for name in CHECK_NAMES
